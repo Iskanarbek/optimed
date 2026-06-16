@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Sotuvlar — Optimed CRM{% endblock %}
+{% block nav_seller_sales %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Sotuvlar</h1>
+        <p>Mavjud ko'zoynaklar</p>
+    </div>
+</div>
+
+<!-- Search bar -->
+<div style="margin-bottom:16px;">
+    <input type="text" id="glassSearch" class="form-control" placeholder="Model yoki brend bo'yicha qidirish..." oninput="filterGlasses()" style="max-width:400px;">
+</div>
+
+<div class="card animate-in">
+    <div class="table-wrapper">
+        <table id="glassesTable">
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Brend</th>
+                    <th>Linza turi</th>
+                    <th>Narx</th>
+                    <th>Miqdor</th>
+                    <th>Amallar</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in glasses %}
+                <tr class="glass-row" data-search="{{ g.model_name|lower }} {{ g.brand|lower }}">
+                    <td><strong>{{ g.model_name }}</strong></td>
+                    <td style="color:var(--text-muted);">{{ g.brand|default:"—" }}</td>
+                    <td style="color:var(--text-muted);">{{ g.lens_type|default:"—" }}</td>
+                    <td><strong>{{ g.sell_price|format_som }} so'm</strong></td>
+                    <td>
+                        <span class="badge {% if g.quantity > 5 %}badge-success{% elif g.quantity > 0 %}badge-warning{% endif %}" style="font-size:11px;">
+                            {{ g.quantity }} dona
+                        </span>
+                    </td>
+                    <td>
+                        <button class="btn btn-primary btn-sm" onclick="openSellModal({{ g.pk }}, '{{ g.model_name|escapejs }}', {{ g.sell_price }})">
+                            Sotish
+                        </button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="6" class="empty-state"><p>Mavjud ko'zoynaklar yo'q</p></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- SELL MODAL -->
+<div class="modal-backdrop" id="sellModal">
+    <div class="modal">
+        <h3 id="sellModalTitle">Ko'zoynak sotish</h3>
+        <form method="post" action="{% url 'seller_sell_glasses' %}">
+            {% csrf_token %}
+            <input type="hidden" name="glasses_id" id="sellGlassesId">
+            <div class="form-group">
+                <label>Sotish narxi</label>
+                <div style="font-size:16px;font-weight:700;color:var(--accent);" id="sellBasePrice">—</div>
+            </div>
+            <div class="form-group">
+                <label>Chegirma (so'm)</label>
+                <input type="number" name="discount_amount" id="sellDiscount" class="form-control" min="0" value="0" oninput="updateFinalPrice()">
+            </div>
+            <div class="form-group">
+                <label>Yakuniy narx</label>
+                <div style="font-size:18px;font-weight:700;color:var(--success);" id="sellFinalPrice">—</div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('sellModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Sotish</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+var currentSellPrice = 0;
+
+function formatSom(n) {
+    return n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ') + ' so\'m';
+}
+
+function openSellModal(id, name, price) {
+    document.getElementById('sellGlassesId').value = id;
+    document.getElementById('sellModalTitle').textContent = name + ' — sotish';
+    document.getElementById('sellDiscount').value = 0;
+    currentSellPrice = price;
+    document.getElementById('sellBasePrice').textContent = formatSom(price);
+    document.getElementById('sellFinalPrice').textContent = formatSom(price);
+    document.getElementById('sellModal').classList.add('active');
+}
+
+function updateFinalPrice() {
+    var discount = parseInt(document.getElementById('sellDiscount').value || 0);
+    var final = Math.max(0, currentSellPrice - discount);
+    document.getElementById('sellFinalPrice').textContent = formatSom(final);
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+document.querySelectorAll('.modal-backdrop').forEach(function(m) {
+    m.addEventListener('click', function(e) { if (e.target === m) m.classList.remove('active'); });
+});
+
+function filterGlasses() {
+    var q = document.getElementById('glassSearch').value.toLowerCase();
+    document.querySelectorAll('.glass-row').forEach(function(row) {
+        var search = row.getAttribute('data-search');
+        row.style.display = search.indexOf(q) !== -1 ? '' : 'none';
+    });
+}
+</script>
+{% endblock %}

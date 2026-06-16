@@ -1,0 +1,108 @@
+<style>
+.a4-form { font-family: 'Times New Roman', serif; font-size: 12px; color: #000; line-height: 1.4; }
+.a4-form h2 { text-align: center; font-size: 16px; margin: 0 0 10px; }
+.a4-form h3 { font-size: 13px; margin: 8px 0 4px; }
+.a4-form table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+.a4-form table th, .a4-form table td { border: 1px solid #000; padding: 3px 6px; font-size: 11px; }
+.a4-form table th { background: #f5f5f5; text-align: center; font-weight: bold; }
+.a4-form .info-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; }
+.a4-form .field-line { margin-bottom: 3px; }
+.a4-form .field-label { font-weight: bold; }
+@media print { @page { size: A4 portrait; margin: 10mm; } }
+</style>
+<div class="a4-form">
+    <div style="text-align:center;margin-bottom:6px;">
+        <strong>OPTIMED</strong> ko'z salomatligi markazi
+    </div>
+    <h2>Ko'chirma (Выписка) <span style="font-size:11px;color:#888;font-weight:normal;font-style:italic;">— EURO standart</span></h2>
+    <div class="info-row">
+        <span><span class="field-label">Protokol:</span> {{ doc.protocol_number }}</span>
+        <span><span class="field-label">Sana:</span> {{ doc.created_at|date:"d.m.Y H:i" }}</span>
+    </div>
+    <div class="info-row">
+        <span><span class="field-label">Bemor:</span> {{ doc.patient.surname }} {{ doc.patient.name }}</span>
+        <span><span class="field-label">Tug'ilgan sana:</span> {{ doc.patient.birth_date|date:"d.m.Y"|default:"—" }}</span>
+    </div>
+    <div class="info-row">
+        <span><span class="field-label">Shifokor:</span> {% if doc.doctor %}{{ doc.doctor.full_name }}{% else %}—{% endif %}</span>
+    </div>
+    <div class="info-row">
+        <span><span class="field-label">Yotish sanasi:</span> {{ doc.yotish_sanasi|date:"d.m.Y"|default:"—" }}</span>
+        <span><span class="field-label">Chiqish sanasi:</span> {{ doc.chiqish_sanasi|date:"d.m.Y"|default:"—" }}</span>
+    </div>
+
+    {% if doc.shikoyat_tarix %}
+    <div class="field-line"><span class="field-label">Shikoyat va kasallik tarixi:</span> {{ doc.shikoyat_tarix }}</div>
+    {% endif %}
+
+    {% if doc.shaxsiy_oilaviy_tarix %}
+    <div class="field-line"><span class="field-label">Shaxsiy va oilaviy tarix:</span> {{ doc.shaxsiy_oilaviy_tarix }}</div>
+    {% endif %}
+
+    {% if doc.tizimli_anamnez %}
+    <div class="field-line"><span class="field-label">Tizimli anamnez:</span> {{ doc.tizimli_anamnez }}</div>
+    {% endif %}
+
+    {% if doc.koz_anamezi %}
+    <div class="field-line"><span class="field-label">Ko'z anamnezi:</span> {{ doc.koz_anamezi }}</div>
+    {% endif %}
+
+    {% if doc.tashxis_kodi_nomi %}
+    <div class="field-line"><span class="field-label">Tashxis (kod va nomi):</span> {{ doc.tashxis_kodi_nomi }}</div>
+    {% endif %}
+
+    {% if doc.operatsiya_kodi_nomi %}
+    <div class="field-line"><span class="field-label">Operatsiya (kod va nomi):</span> {{ doc.operatsiya_kodi_nomi }}</div>
+    {% endif %}
+
+    <h3>Ko'z tekshiruvi (Осмотр глаз)</h3>
+    <table>
+        <tr><th></th><th>OD (o'ng)</th><th>OS (chap)</th></tr>
+        <tr><td><strong>Old segment</strong></td><td>{{ doc.old_segment_ong }}</td><td>{{ doc.old_segment_chap }}</td></tr>
+        <tr><td><strong>Fundus</strong></td><td>{{ doc.fundus_ong }}</td><td>{{ doc.fundus_chap }}</td></tr>
+        <tr><td><strong>Ko'z bosimi</strong></td><td>{{ doc.koz_bosimi_ong }}</td><td>{{ doc.koz_bosimi_chap }}</td></tr>
+        <tr><td><strong>Daraja</strong></td><td>{{ doc.daraja_ong }}</td><td>{{ doc.daraja_chap }}</td></tr>
+        <tr><td><strong>Qovoq</strong></td><td>{{ doc.qovoq_ong }}</td><td>{{ doc.qovoq_chap }}</td></tr>
+        <tr><td><strong>Glob</strong></td><td>{{ doc.glob_ong }}</td><td>{{ doc.glob_chap }}</td></tr>
+    </table>
+
+    <h3>Operatsiyadan oldin / keyin (До/После операции)</h3>
+    <table>
+        <tr><th></th><th>OD (o'ng)</th><th>OS (chap)</th></tr>
+        <tr><td><strong>Preop ko'rish</strong></td><td>{{ doc.preop_ong }}</td><td>{{ doc.preop_chap }}</td></tr>
+        <tr><td><strong>Postop ko'rish</strong></td><td>{{ doc.postop_ong }}</td><td>{{ doc.postop_chap }}</td></tr>
+    </table>
+
+    {% if doc.muhim_tekshiruv %}
+    <div class="field-line"><span class="field-label">Muhim tekshiruv:</span> {{ doc.muhim_tekshiruv }}</div>
+    {% endif %}
+
+    {% if doc.anesteziya_turi %}
+    <div class="field-line"><span class="field-label">Anesteziya turi:</span> {{ doc.anesteziya_turi }}</div>
+    {% endif %}
+
+    {% if doc.anesteziya_izohi %}
+    <div class="field-line"><span class="field-label">Anesteziya izohi:</span> {{ doc.anesteziya_izohi }}</div>
+    {% endif %}
+
+    {% if doc.operatsiya_izohlar %}
+    <div class="field-line"><span class="field-label">Operatsiya izohlari:</span> {{ doc.operatsiya_izohlar }}</div>
+    {% endif %}
+
+    {% if doc.ishlatilgan_linzalar %}
+    <div class="field-line"><span class="field-label">Ishlatilgan linzalar:</span> {{ doc.ishlatilgan_linzalar }}</div>
+    {% endif %}
+
+    {% if doc.chiqish_holati %}
+    <div class="field-line"><span class="field-label">Chiqish holati:</span> {{ doc.chiqish_holati }}</div>
+    {% endif %}
+
+    {% if doc.davolash %}
+    <div class="field-line"><span class="field-label">Davolash:</span> {{ doc.davolash }}</div>
+    {% endif %}
+
+    <div style="margin-top:30px;display:flex;justify-content:space-between;">
+        <div>Shifokor imzosi: _______________</div>
+        <div>Sana: {{ doc.created_at|date:"d.m.Y" }}</div>
+    </div>
+</div>

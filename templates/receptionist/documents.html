@@ -1,0 +1,170 @@
+{% extends 'base.html' %}
+{% block title %}Hujjatlar — Optimed CRM{% endblock %}
+{% block nav_documents %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Hujjatlar</h1>
+        <p>Barcha tibbiy hujjatlarni qidirish</p>
+    </div>
+</div>
+
+<div class="search-bar" style="margin-bottom:20px;">
+    <input type="text" id="docSearchInput" placeholder="Telefon raqami yoki protokol raqami bo'yicha qidirish..." onkeydown="if(event.key==='Enter')searchDocuments()">
+    <button class="btn btn-primary" onclick="searchDocuments()">Qidirish</button>
+</div>
+
+<div id="docResults">
+    {% if recent_docs %}
+    <p style="color:var(--text-muted);font-size:13px;margin-bottom:12px;">So'nggi hujjatlar</p>
+    {% for item in recent_docs %}
+    <div class="doc-card">
+        <div class="doc-card-info">
+            <h4>
+                <span class="doc-card-type {{ item.type }}">{{ item.label }}</span>
+                {{ item.patient_name }}
+            </h4>
+            <p>Protokol: {{ item.protocol }} &middot; Doktor: {{ item.doctor_name }} &middot; {{ item.date }}</p>
+        </div>
+        <div class="doc-card-actions">
+            <button class="btn btn-secondary btn-sm" onclick="viewDocument('{{ item.type }}', {{ item.id }})">Ko'rish</button>
+            <button class="btn btn-primary btn-sm" onclick="viewDocument('{{ item.type }}', {{ item.id }}, true)">Chop</button>
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+<div id="docEmpty" style="display:none;" class="empty-state"><p>Hujjatlar topilmadi</p></div>
+
+<!-- A4 OVERLAY -->
+<div class="form-overlay" id="formOverlay" style="display:none;">
+    <div class="form-overlay-header">
+        <button class="btn btn-secondary btn-sm" onclick="closeOverlay()">Yopish</button>
+        <button class="btn btn-primary btn-sm" onclick="printDocument()">Chop etish</button>
+    </div>
+    <div class="form-overlay-body" id="overlayBody"></div>
+</div>
+
+<style>
+.doc-card {
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.doc-card-info { flex: 1; }
+.doc-card-info h4 { margin: 0 0 4px; font-size: 14px; }
+.doc-card-info p { margin: 0; font-size: 12px; color: var(--text-muted); }
+.doc-card-type {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 8px;
+}
+.doc-card-type.eye_exam { background: #e8f5e9; color: #2e7d32; }
+.doc-card-type.discharge { background: #e3f2fd; color: #1565c0; }
+.doc-card-type.lasik { background: #f3e8ff; color: #7c3aed; }
+.doc-card-type.strabismus { background: #fff7e6; color: #d97100; }
+.doc-card-type.postop { background: #e0f7fa; color: #0891b2; }
+.doc-card-type.tibbiy_yozuv { background: #fce7f3; color: #9d174d; }
+.doc-card-actions { display: flex; gap: 8px; }
+.form-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: #f0f0f0; z-index: 1000; overflow-y: auto;
+}
+.form-overlay-header {
+    position: sticky; top: 0; background: var(--dark); padding: 12px 24px;
+    display: flex; gap: 8px; justify-content: flex-end; z-index: 1001;
+}
+.form-overlay-body {
+    max-width: 210mm; margin: 20px auto; background: #fff;
+    padding: 20mm; min-height: 297mm; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+/* Print handled by printDocument() opening a new window */
+</style>
+
+<script>
+function searchDocuments() {
+    var q = document.getElementById('docSearchInput').value.trim();
+    if (!q) {
+        // Restore recent docs
+        location.reload();
+        return;
+    }
+    document.getElementById('docEmpty').style.display = 'none';
+    document.getElementById('docResults').innerHTML = '<p style="color:var(--text-muted);padding:12px;">Qidirilmoqda...</p>';
+
+    fetch('{% url "receptionist_documents_search" %}?q=' + encodeURIComponent(q))
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (!data.results || data.results.length === 0) {
+                document.getElementById('docResults').innerHTML = '';
+                document.getElementById('docEmpty').style.display = 'block';
+                return;
+            }
+            var html = '';
+            data.results.forEach(function(item) {
+                var typeLabel = item.label || item.type;
+                var typeClass = item.type;
+                html += '<div class="doc-card">' +
+                    '<div class="doc-card-info">' +
+                    '<h4><span class="doc-card-type ' + typeClass + '">' + typeLabel + '</span>' + item.patient_name + '</h4>' +
+                    '<p>Protokol: ' + (item.protocol || '—') + ' &middot; Doktor: ' + item.doctor_name + ' &middot; ' + item.date + '</p>' +
+                    '</div>' +
+                    '<div class="doc-card-actions">' +
+                    '<button class="btn btn-secondary btn-sm" onclick="viewDocument(\'' + item.type + '\',' + item.id + ')">Ko\'rish</button>' +
+                    '<button class="btn btn-primary btn-sm" onclick="viewDocument(\'' + item.type + '\',' + item.id + ', true)">Chop</button>' +
+                    '</div></div>';
+            });
+            document.getElementById('docResults').innerHTML = html;
+        });
+}
+
+function viewDocument(type, id, autoPrint) {
+    fetch('{% url "receptionist_document_view" "eye_exam" 0 %}'.replace('eye_exam', type).replace('/0/', '/' + id + '/'))
+        .then(function(r) { return r.text(); })
+        .then(function(html) {
+            document.getElementById('overlayBody').innerHTML = html;
+            document.getElementById('formOverlay').style.display = 'block';
+            document.body.style.overflow = 'hidden';
+            // Push state so browser back button closes overlay instead of navigating away
+            history.pushState({overlay: true, type: type, id: id}, '', '#doc-' + type + '-' + id);
+            if (autoPrint) { setTimeout(function(){ printDocument(); }, 300); }
+        });
+}
+
+function closeOverlay() {
+    document.getElementById('formOverlay').style.display = 'none';
+    document.body.style.overflow = '';
+    // Remove the hash from URL without navigation
+    if (location.hash && location.hash.indexOf('#doc-') === 0) {
+        history.pushState(null, '', location.pathname + location.search);
+    }
+}
+
+function printDocument() {
+    var html = document.getElementById('overlayBody').innerHTML;
+    var w = window.open('', '_blank');
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Hujjat</title><style>body{margin:10mm;font-family:\'Times New Roman\',serif;}@page{size:A4 portrait;margin:10mm;}</style></head><body>' + html + '</body></html>');
+    w.document.close();
+    w.focus();
+    setTimeout(function(){ w.print(); w.close(); }, 400);
+}
+
+// Close overlay on browser back
+window.addEventListener('popstate', function(e) {
+    var overlay = document.getElementById('formOverlay');
+    if (overlay.style.display === 'block') {
+        overlay.style.display = 'none';
+        document.body.style.overflow = '';
+    }
+});
+</script>
+{% endblock %}

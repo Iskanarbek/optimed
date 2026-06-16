@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Dr. {{ doctor.full_name }} — Optimed CRM{% endblock %}
+{% block nav_doctor %}active{% endblock %}
+
+{% block content %}
+<style>
+.edit-visit-backdrop {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+    display: none; z-index: 1000; justify-content: center; align-items: flex-start; padding: 40px 20px;
+    overflow-y: auto;
+}
+.edit-visit-backdrop.active { display: flex; }
+.edit-visit-panel {
+    background: var(--white); border-radius: 12px; padding: 24px; width: 100%; max-width: 700px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;
+}
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>Dr. {{ doctor.full_name }}</h1>
+        <p>{{ doctor.service.name|default:"Umumiy amaliyot" }}</p>
+    </div>
+</div>
+
+<!-- HISOBLAGICHLAR -->
+<div class="stats-grid" style="margin-bottom:24px;">
+    <div class="stat-card animate-in">
+        <div class="stat-label">Hozirgi bemorlar</div>
+        <div class="stat-value">{{ current_count }}</div>
+        <div class="stat-sub">Kutmoqda va qabulda</div>
+    </div>
+    <div class="stat-card success animate-in">
+        <div class="stat-label">Tugatilgan</div>
+        <div class="stat-value">{{ done_count }}</div>
+        <div class="stat-sub">
+            {% if period == 'today' %}Bugun{% elif period == 'week' %}Shu hafta{% elif period == 'month' %}Shu oy{% else %}Hammasi{% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- TABLAR -->
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:24px;">
+    <div class="tabs">
+        <a href="?tab=current&period={{ period }}" class="tab {% if tab == 'current' %}active{% endif %}">
+            Hozirgi ({{ current_count }})
+        </a>
+        <a href="?tab=done&period={{ period }}" class="tab {% if tab == 'done' %}active{% endif %}">
+            Tugatilgan ({{ done_count }})
+        </a>
+    </div>
+
+    {% if tab == 'done' %}
+    <div class="period-filter">
+        <a href="?tab=done&period=today" class="period-btn {% if period == 'today' %}active{% endif %}">Bugun</a>
+        <a href="?tab=done&period=week" class="period-btn {% if period == 'week' %}active{% endif %}">Hafta</a>
+        <a href="?tab=done&period=month" class="period-btn {% if period == 'month' %}active{% endif %}">Oy</a>
+        <a href="?tab=done&period=all" class="period-btn {% if period == 'all' %}active{% endif %}">Hammasi</a>
+    </div>
+    {% endif %}
+</div>
+
+<!-- HOZIRGI BEMORLAR -->
+{% if tab == 'current' %}
+<div class="card">
+    <div class="card-header"><h3>Hozirgi bemorlar</h3></div>
+    {% for cp in current_patients %}
+    <div class="patient-item">
+        <a href="{% url 'doctor_patient_detail' doctor.pk cp.patient.pk %}" style="display:flex;align-items:center;gap:14px;text-decoration:none;color:inherit;flex:1;">
+            <div class="patient-avatar">{{ cp.patient.name|first }}{{ cp.patient.surname|first }}</div>
+            <div>
+                <div class="patient-name">{{ cp.patient.full_name }}</div>
+                <div class="patient-phone">
+                    {{ cp.latest_visit|visit_service_names }} &middot; {{ cp.latest_visit.created_at|date:"H:i" }}
+                    {% if cp.visit_count > 1 %}
+                    <span class="badge badge-info" style="margin-left:6px;">{{ cp.visit_count }} ta tashrif</span>
+                    {% endif %}
+                </div>
+            </div>
+        </a>
+        <div class="patient-actions">
+            <a href="{% url 'doctor_patient_detail' doctor.pk cp.patient.pk %}" class="btn btn-primary btn-sm">Ochish</a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        <p>Hozircha bemorlar yo'q</p>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- TUGATILGAN BEMORLAR -->
+{% if tab == 'done' %}
+<div class="card">
+    <div class="card-header"><h3>Tugatilgan bemorlar</h3></div>
+    {% for visit in done_visits %}
+    <div class="patient-item">
+        <div style="display:flex;align-items:center;gap:14px;flex:1;">
+            <div class="patient-avatar">{{ visit.patient.name|first }}{{ visit.patient.surname|first }}</div>
+            <div>
+                <div class="patient-name">{{ visit.patient.full_name }}</div>
+                <div class="patient-phone">{{ visit|visit_service_names }} &middot; {{ visit.completed_at|date:"d.m.Y H:i" }}</div>
+            </div>
+        </div>
+        <div class="patient-actions">
+            {% if visit.status == 'has_procedure' %}
+            <span class="badge badge-warning">Protsedurasi bor</span>
+            {% endif %}
+            <a href="{% url 'doctor_patient_full_history' doctor.pk visit.patient.pk %}" class="btn btn-secondary btn-sm" title="To'liq tarix">Tarix</a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state"><p>Bu davr uchun tugatilgan bemorlar yo'q</p></div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<script>
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+document.querySelectorAll('.modal-backdrop').forEach(function(m) {
+    m.addEventListener('click', function(e) { if (e.target === m) m.classList.remove('active'); });
+});
+</script>
+{% endblock %}

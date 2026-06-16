@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Umumiy tahlil — Optimed CRM{% endblock %}
+{% block nav_analytics_overall %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Umumiy tahlil</h1>
+        <p>Moliyaviy ko'rsatkichlar va bemor statistikasi</p>
+    </div>
+    <div class="period-filter">
+        <a href="?period=month{% if selected_metric %}&metric={{ selected_metric }}{% endif %}" class="period-btn {% if period == 'month' %}active{% endif %}">Oy</a>
+        <a href="?period=6m{% if selected_metric %}&metric={{ selected_metric }}{% endif %}" class="period-btn {% if period == '6m' %}active{% endif %}">6 oy</a>
+        <a href="?period=1y{% if selected_metric %}&metric={{ selected_metric }}{% endif %}" class="period-btn {% if period == '1y' %}active{% endif %}">Yil</a>
+        <a href="?period=all{% if selected_metric %}&metric={{ selected_metric }}{% endif %}" class="period-btn {% if period == 'all' %}active{% endif %}">Hammasi</a>
+    </div>
+</div>
+
+<!-- METRIC SELECTOR CARDS (3 visible: Sof foyda, Umumiy daromad, Bemorlar) -->
+<div class="stats-grid" style="grid-template-columns:repeat(3, 1fr);">
+    <div class="stat-card success animate-in metric-btn{% if selected_metric == 'net_revenue' or not selected_metric %} selected{% endif %}" data-metric="net_revenue" onclick="selectMetric('net_revenue')">
+        <div class="stat-label">Sof foyda</div>
+        <div class="stat-value">{{ net_revenue|format_som }} so'm</div>
+    </div>
+    <div class="stat-card accent animate-in metric-btn{% if selected_metric == 'revenue' %} selected{% endif %}" data-metric="revenue" onclick="selectMetric('revenue')">
+        <div class="stat-label">Umumiy daromad</div>
+        <div class="stat-value">{{ revenue|format_som }} so'm</div>
+    </div>
+    <div class="stat-card accent animate-in metric-btn{% if selected_metric == 'patients' %} selected{% endif %}" data-metric="patients" onclick="selectMetric('patients')">
+        <div class="stat-label">Bemorlar soni</div>
+        <div class="stat-value">{{ total_patients }}</div>
+    </div>
+</div>
+
+<!-- TREND CHART -->
+<div class="card animate-in" style="margin-bottom:24px;">
+    <div class="card-header">
+        <h3 id="chartTitle">{% if selected_metric == 'revenue' %}Daromad dinamikasi{% elif selected_metric == 'patients' %}Bemorlar dinamikasi{% elif selected_metric == 'spendings' %}Xarajatlar dinamikasi{% else %}Sof foyda dinamikasi{% endif %}</h3>
+    </div>
+    <div class="chart-container" style="height:400px;">
+        <canvas id="trendChart"></canvas>
+    </div>
+</div>
+
+<!-- SUMMARY TABLE (all metrics including hidden ones + ratings + patient stats) -->
+<div class="card animate-in" style="margin-bottom:24px;">
+    <div class="card-header"><h3>Umumiy ko'rsatkichlar</h3></div>
+    <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <table style="width:100%;font-size:12px;border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left;padding:5px 6px;font-size:11px;white-space:nowrap;">Ko'rsatkich</th>
+                    <th style="text-align:right;padding:5px 6px;font-size:11px;white-space:nowrap;">Qiymat</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr><td style="padding:4px 6px;">Sof foyda</td><td style="text-align:right;padding:4px 6px;font-weight:600;color:var(--success);">{{ net_revenue|format_som }}</td></tr>
+                <tr><td style="padding:4px 6px;">Umumiy daromad</td><td style="text-align:right;padding:4px 6px;font-weight:600;">{{ revenue|format_som }}</td></tr>
+                <tr><td style="padding:4px 6px;">Xarajatlar</td><td style="text-align:right;padding:4px 6px;font-weight:600;color:var(--danger);">{{ spendings|format_som }}</td></tr>
+                <tr><td style="padding:4px 6px;">Komissiyalar</td><td style="text-align:right;padding:4px 6px;font-weight:600;color:var(--warning);">{{ total_commission|format_som }}</td></tr>
+                <tr><td style="padding:4px 6px;">Klinika bahosi</td><td style="text-align:right;padding:4px 6px;font-weight:600;">{% if avg_clinic_rating %}{{ avg_clinic_rating }}/10{% else %}—{% endif %}</td></tr>
+                <tr><td style="padding:4px 6px;">Doktor bahosi</td><td style="text-align:right;padding:4px 6px;font-weight:600;">{% if avg_doctor_rating %}{{ avg_doctor_rating }}/10{% else %}—{% endif %}</td></tr>
+                <tr><td style="padding:4px 6px;">Bemorlar</td><td style="text-align:right;padding:4px 6px;font-weight:600;">{{ total_patients }} <span style="color:var(--text-muted);font-size:10px;">(qaytgan: {{ returning_patients }}, {{ returning_pct }}%)</span></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- PATIENT LIST with export buttons -->
+<div class="card animate-in">
+    <div class="card-header">
+        <h3>Bemorlar tashriflari</h3>
+        <div style="display:flex;gap:8px;">
+            <a href="{% url 'export_data_excel' %}" class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:4px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Excel
+            </a>
+            <a href="{% url 'export_data_pdf' %}" class="btn btn-secondary btn-sm" style="display:inline-flex;align-items:center;gap:4px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                PDF
+            </a>
+        </div>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Bemor</th>
+                    <th>Telefon</th>
+                    <th>Doktor</th>
+                    <th>Xizmat</th>
+                    <th>Sana</th>
+                    <th>Chegirma</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for p in patient_list %}
+                <tr>
+                    <td>{{ forloop.counter }}</td>
+                    <td><strong>{{ p.name }}</strong></td>
+                    <td>{{ p.phone }}</td>
+                    <td>{{ p.doctor }}</td>
+                    <td>{{ p.service }}</td>
+                    <td>{{ p.date|date:"d.m.Y" }}</td>
+                    <td>
+                        {% if p.has_discount %}
+                            <span class="discount-tag">-{{ p.discount|format_som }} so'm {% if p.discount_reason %}({{ p.discount_reason }}){% endif %}</span>
+                        {% else %}
+                            <span style="color:var(--text-muted);">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if p.patient_id %}
+                        <a href="{% url 'admin_patient_detail' p.patient_id %}" class="btn btn-secondary btn-sm">Batafsil</a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="empty-state"><p>Hali tashriflar qayd etilmagan</p></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const trendsData = {{ trends_json|safe|default:"[]" }};
+
+    const metricConfig = {
+        patients:    { label: 'Bemorlar dinamikasi',  color: '#3498db', suffix: '' },
+        revenue:     { label: 'Daromad dinamikasi',    color: '#1a1a2e', suffix: " so'm" },
+        net_revenue: { label: 'Sof foyda dinamikasi',  color: '#2ecc71', suffix: " so'm" },
+        spendings:   { label: 'Xarajatlar dinamikasi', color: '#e74c3c', suffix: " so'm" },
+    };
+
+    // Persist selected metric across period changes
+    let currentMetric = '{{ selected_metric|default:"net_revenue" }}';
+
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    const initCfg = metricConfig[currentMetric];
+    const trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: trendsData.map(d => d.label),
+            datasets: [{
+                label: initCfg.label,
+                data: trendsData.map(d => d[currentMetric]),
+                borderColor: initCfg.color,
+                backgroundColor: initCfg.color + '14',
+                borderWidth: 2.5,
+                fill: true,
+                tension: 0.4,
+                pointBackgroundColor: initCfg.color,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            const cfg = metricConfig[currentMetric];
+                            if (cfg.suffix) {
+                                return ctx.parsed.y.toLocaleString('uz-UZ') + cfg.suffix;
+                            }
+                            return ctx.parsed.y.toLocaleString('uz-UZ');
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f0f0f0' },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString('uz-UZ');
+                        }
+                    }
+                },
+                x: { grid: { display: false } }
+            },
+            animation: { duration: 800, easing: 'easeOutQuart' }
+        }
+    });
+
+    window.selectMetric = function(metric) {
+        currentMetric = metric;
+        const cfg = metricConfig[metric];
+
+        // Update button states
+        document.querySelectorAll('.metric-btn').forEach(btn => btn.classList.remove('selected'));
+        document.querySelector('[data-metric="' + metric + '"]').classList.add('selected');
+
+        // Update chart title
+        document.getElementById('chartTitle').textContent = cfg.label;
+
+        // Update chart data
+        trendChart.data.datasets[0].data = trendsData.map(d => d[metric]);
+        trendChart.data.datasets[0].label = cfg.label;
+        trendChart.data.datasets[0].borderColor = cfg.color;
+        trendChart.data.datasets[0].backgroundColor = cfg.color + '14';
+        trendChart.data.datasets[0].pointBackgroundColor = cfg.color;
+        trendChart.update();
+
+        // Update period links to preserve selected metric
+        document.querySelectorAll('.period-btn').forEach(function(link) {
+            var href = link.getAttribute('href');
+            // Remove existing metric param
+            href = href.replace(/&metric=[^&]*/g, '');
+            link.setAttribute('href', href + '&metric=' + metric);
+        });
+    };
+});
+</script>
+{% endblock %}

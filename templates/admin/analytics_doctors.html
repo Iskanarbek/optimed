@@ -1,0 +1,135 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Doktorlar tahlili — Optimed CRM{% endblock %}
+{% block nav_analytics_doctors %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Doktorlar tahlili</h1>
+        <p>Samaradorlik va daromad doktorlar bo'yicha</p>
+    </div>
+    <div class="period-filter">
+        <a href="?period=week" class="period-btn {% if period == 'week' %}active{% endif %}">Hafta</a>
+        <a href="?period=month" class="period-btn {% if period == 'month' %}active{% endif %}">Oy</a>
+        <a href="?period=year" class="period-btn {% if period == 'year' %}active{% endif %}">Yil</a>
+        <a href="?period=all" class="period-btn {% if period == 'all' %}active{% endif %}">Hammasi</a>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+    <div class="card animate-in">
+        <div class="card-header"><h3>Qabul qilingan bemorlar</h3></div>
+        <div class="chart-container">
+            <canvas id="patientsChart"></canvas>
+        </div>
+    </div>
+    <div class="card animate-in">
+        <div class="card-header"><h3>Keltirilgan daromad</h3></div>
+        <div class="chart-container">
+            <canvas id="revenueChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="card animate-in">
+    <div class="card-header"><h3>Doktorlar ko'rsatkichlari</h3></div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Doktor</th>
+                    <th>Bemorlar soni</th>
+                    <th>Daromad</th>
+                    <th>Reyting</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for d in doctor_data %}
+                <tr>
+                    <td><strong>{{ d.name }}</strong></td>
+                    <td>{{ d.patients_seen }}</td>
+                    <td><strong>{{ d.revenue|format_som }} so'm</strong></td>
+                    <td>
+                        {% if d.rating %}
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span style="font-weight:700;">{{ d.rating }}</span>
+                            <div class="stars">
+                                {% for i in d.rating|star_range %}<span class="star filled">&#9733;</span>{% endfor %}
+                                {% for i in d.rating|empty_star_range %}<span class="star">&#9733;</span>{% endfor %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <span style="color:var(--text-muted);">Baholangan emas</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="empty-state"><p>Ma'lumotlar mavjud emas</p></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const data = {{ doctor_data_json|safe }};
+    const labels = data.map(d => d.name);
+    const patients = data.map(d => d.patients_seen);
+    const revenues = data.map(d => d.revenue);
+    const colors = ['#1a1a2e', '#e74c3c', '#2ecc71', '#f39c12', '#3498db', '#9b59b6', '#1abc9c'];
+
+    new Chart(document.getElementById('patientsChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Bemorlar',
+                data: patients,
+                backgroundColor: colors.slice(0, labels.length),
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                y: { beginAtZero: true, grid: { color: '#f0f0f0' } },
+                x: { grid: { display: false } }
+            },
+            animation: { duration: 1000, easing: 'easeOutQuart' }
+        }
+    });
+
+    new Chart(document.getElementById('revenueChart'), {
+        type: 'doughnut',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: revenues,
+                backgroundColor: colors.slice(0, labels.length),
+                borderWidth: 0, borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true, maintainAspectRatio: false,
+            cutout: '60%',
+            plugins: {
+                legend: { position: 'bottom', labels: { padding: 16, font: { size: 12 } } },
+                tooltip: {
+                    callbacks: {
+                        label: function(ctx) {
+                            return ctx.label + ': ' + ctx.parsed.toLocaleString('uz-UZ') + " so'm";
+                        }
+                    }
+                }
+            },
+            animation: { animateRotate: true, duration: 1200, easing: 'easeOutQuart' }
+        }
+    });
+});
+</script>
+{% endblock %}

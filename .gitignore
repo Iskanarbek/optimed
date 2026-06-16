@@ -1,0 +1,15 @@
+db.sqlite3
+venv/
+*.pyc
+__pycache__/
+*.egg-info/
+.DS_Store
+*.log
+.env
+.vscode/
+.idea/
+node_modules/
+*.egg
+dist/
+build/
+.pytest_cache/

@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Shifokorlar — Optimed CRM{% endblock %}
+{% block nav_history %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Shifokorlar</h1>
+        <p>Doktorlar ro'yxati va tarixi</p>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h3>Doktorlar</h3>
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Doktor</th>
+                    <th>Bemorlar soni</th>
+                    <th>Tashriflar</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in doctor_list %}
+                <tr>
+                    <td><strong>{{ item.doctor.full_name }}</strong></td>
+                    <td>{{ item.patient_count }}</td>
+                    <td>{{ item.visit_count }}</td>
+                    <td><a href="{% url 'receptionist_doctor_history' item.doctor.pk %}" class="btn btn-secondary btn-sm">Batafsil</a></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="empty-state"><p>Doktorlar topilmadi</p></td></tr>
+                {% endfor %}
+                {% for od in orphan_doctor_list %}
+                <tr style="background:var(--bg-light);">
+                    <td><strong style="color:var(--danger);">{{ od.doctor_name }}</strong> <small style="color:var(--text-muted);">(o'chirilgan)</small></td>
+                    <td>—</td>
+                    <td>{{ od.visit_count }}</td>
+                    <td><a href="{% url 'receptionist_orphan_visits' %}?doctor_name={{ od.doctor_name|urlencode }}" class="btn btn-secondary btn-sm">Ko'rish</a></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

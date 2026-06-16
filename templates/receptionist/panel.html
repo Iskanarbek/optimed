@@ -1,0 +1,827 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Qabul bo'limi — Optimed CRM{% endblock %}
+{% block nav_receptionist %}active{% endblock %}
+
+{% block content %}
+<style>
+.collapsible-card { transition: all 0.2s ease; }
+.collapsible-card:not(.is-open) { padding: 0; margin-bottom: 8px; }
+.collapsible-card:not(.is-open) .card-header { padding: 8px 14px; margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.collapsible-card.is-open { padding: 0; }
+.collapsible-card.is-open .card-header { padding: 14px 16px; margin-bottom: 0; padding-bottom: 10px; }
+.collapsible-header { cursor:pointer; user-select:none; display:flex; align-items:center; justify-content:space-between; }
+.collapsible-header .chevron-icon { transition:transform 0.3s ease; display:inline-block; }
+.collapsible-header.expanded .chevron-icon { transform:rotate(180deg); }
+.collapsible-header h3 { transition: font-size 0.2s ease; }
+.collapsible-card:not(.is-open) .collapsible-header h3 { font-size: 13px; font-weight: 600; }
+.collapsible-card:not(.is-open) .badge { font-size: 10px; padding: 1px 6px; }
+.collapsible-card:not(.is-open) .chevron-icon svg { width: 16px; height: 16px; }
+.collapsible-body { display:none; }
+.collapsible-body.show { display:block; }
+.services-container { display:none; }
+.services-container.visible { display:block; }
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>Qabul bo'limi</h1>
+        <p>Bemorlarni qidirish, ro'yxatdan o'tkazish va yo'naltirish</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('addPatientModal')">+ Yangi bemor</button>
+</div>
+
+<!-- SEARCH with live autocomplete -->
+<div style="position:relative;">
+    <form method="get" class="search-bar" id="searchForm">
+        <input type="text" name="search" id="searchInput" value="{{ search }}" placeholder="Telefon, ism yoki familiya bo'yicha qidirish..." autocomplete="off">
+        <button class="btn btn-primary" type="submit">Qidirish</button>
+        {% if search %}<a href="{% url 'receptionist_panel' %}" class="btn btn-secondary">Tozalash</a>{% endif %}
+    </form>
+    <div id="searchDropdown" class="search-dropdown" style="display:none;"></div>
+</div>
+
+<!-- WAITING QUEUE (above scheduled, collapsible, default closed) -->
+<div class="card animate-in collapsible-card" id="waitingCard" style="border-left:4px solid var(--primary);">
+    <div class="card-header collapsible-header" onclick="toggleSection('waitingSection', this, 'waitingCard')">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <h3>Kutayotgan bemorlar</h3>
+            <span class="badge badge-info">{{ waiting_total }} ta</span>
+        </div>
+        <span class="chevron-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+    </div>
+    <div class="collapsible-body" id="waitingSection">
+        {% for patient_id, visit in waiting_map.items %}
+        <div class="patient-item" style="padding:12px 16px;">
+            <div class="patient-info">
+                <div class="patient-avatar" style="background:var(--primary);font-size:14px;">
+                    {% if visit.queue %}{{ visit.queue.number }}{% else %}—{% endif %}
+                </div>
+                <div>
+                    <div class="patient-name">{{ visit.patient.full_name }}</div>
+                    <div class="patient-phone">
+                        Dr. {{ visit.doctor.full_name|default:"?" }}
+                        {% if visit.doctor.room_number %} | Xona: {{ visit.doctor.room_number }}{% endif %}
+                        | {{ visit|visit_service_names }}
+                    </div>
+                </div>
+            </div>
+            <div class="patient-actions">
+                <a href="{% url 'receptionist_print_ticket' visit.pk %}" class="btn btn-secondary btn-sm" target="_blank" title="Chiptani chop etish">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                    Chipta
+                </a>
+                <button class="btn btn-secondary btn-sm" onclick="openEditVisitModal({{ visit.pk }}, '{{ visit.patient.full_name|escapejs }}', '{{ visit.doctor_id|default:"" }}', [{% for vs in visit.visit_services.all %}{{ vs.service_id }}{% if not forloop.last %},{% endif %}{% endfor %}], {{ visit.discount_amount }}, '{{ visit.discount_reason|escapejs }}')" title="Tashrifni tahrirlash">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Tahrirlash
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+        {% for lv in waiting_lab_visits %}
+        <div class="patient-item" style="padding:12px 16px;">
+            <div class="patient-info">
+                <div class="patient-avatar" style="background:var(--success);font-size:14px;color:#fff;">
+                    {% if lv.queue %}{{ lv.queue.number }}{% else %}L{% endif %}
+                </div>
+                <div>
+                    <div class="patient-name">{{ lv.patient.full_name }}</div>
+                    <div class="patient-phone" style="color:var(--success);font-weight:600;">
+                        Laboratoriya
+                        {% for ls in lv.lab_services.all %}{% if forloop.first %} | {% endif %}{{ ls.service_name }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="patient-actions">
+                <a href="{% url 'receptionist_print_lab_ticket' lv.pk %}" class="btn btn-secondary btn-sm" target="_blank" title="Lab chiptasi">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                    Chipta
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+        {% if not waiting_map and not waiting_lab_visits %}
+        <div class="empty-state" style="padding:20px;"><p>Hozircha kutayotgan bemor yo'q</p></div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- SCHEDULED VISITS (collapsible, default closed) -->
+<div class="card animate-in collapsible-card" id="scheduledCard" style="border-left:4px solid var(--warning);">
+    <div class="card-header collapsible-header" onclick="toggleSection('scheduledSection', this, 'scheduledCard')">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <h3>Rejalashtirilgan uchrashuvlar</h3>
+            <span class="badge badge-warning">{{ scheduled_visits|length }} ta</span>
+        </div>
+        <span class="chevron-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+    </div>
+    <div class="collapsible-body" id="scheduledSection">
+        {% for sv in scheduled_visits %}
+        <div class="patient-item" style="padding:12px 16px;">
+            <div class="patient-info">
+                <div class="patient-avatar" style="background:{% if sv.is_lab %}var(--success){% else %}var(--warning){% endif %};color:#fff;font-size:12px;">
+                    {{ sv.scheduled_date|date:"d" }}
+                </div>
+                <div>
+                    <div class="patient-name">{{ sv.patient.full_name }}</div>
+                    <div class="patient-phone"{% if sv.is_lab %} style="color:var(--success);font-weight:600;"{% endif %}>
+                        {% if sv.is_lab %}Laboratoriya{% else %}Dr. {{ sv.doctor.full_name|default:"?" }}{% endif %}
+                        | {{ sv.scheduled_date|date:"d.m.Y" }}{% if sv.scheduled_time %} {{ sv.scheduled_time|time:"H:i" }}{% endif %}
+                    </div>
+                    {% if sv.notes %}
+                    <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">{{ sv.notes|truncatewords:10 }}</div>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="patient-actions">
+                {% if not sv.is_lab %}
+                <button class="btn btn-secondary btn-sm" onclick="openEditScheduledModal({{ sv.pk }}, '{{ sv.patient.full_name|escapejs }}', '{{ sv.doctor_id|default:"" }}', '{{ sv.scheduled_date|date:"Y-m-d" }}', '{{ sv.scheduled_time|time:"H:i"|default:"" }}', '{{ sv.notes|escapejs }}')" title="Tahrirlash">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    Tahrirlash
+                </button>
+                {% endif %}
+                <form method="post" action="{% url 'activate_scheduled_visit' sv.pk %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button class="btn btn-primary btn-sm">Faollashtirish</button>
+                </form>
+                <form method="post" action="{% url 'delete_scheduled_visit' sv.pk %}" style="display:inline;" onsubmit="return confirm('Bu uchrashuvni bekor qilmoqchimisiz?')">
+                    {% csrf_token %}
+                    <button class="btn btn-danger btn-sm">Bekor qilish</button>
+                </form>
+            </div>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="padding:20px;"><p>Rejalashtirilgan uchrashuvlar yo'q</p></div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- PATIENT LIST -->
+<div class="card">
+    <div class="card-header">
+        <h3>Barcha bemorlar</h3>
+        <span style="color:var(--text-muted);font-size:13px;">{{ patients.count }} ta</span>
+    </div>
+    {% for patient in patients %}
+    <div class="patient-item">
+        <div class="patient-info">
+            <div class="patient-avatar">{{ patient.name|first }}{{ patient.surname|first }}</div>
+            <div>
+                <div class="patient-name">{{ patient.name }} {{ patient.surname }}</div>
+                <div class="patient-phone">{{ patient.phone }}</div>
+            </div>
+        </div>
+        <div class="patient-actions">
+            {% with sv_info=today_sv_by_patient|get_item:patient.pk %}
+            {% if sv_info %}
+            <form method="post" action="{% url 'activate_scheduled_visit' sv_info.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-success btn-sm" style="font-size:12px;" title="Bugungi uchrashuvni faollashtirish">Bugun uchrashuvi bor{% if sv_info.doctor_name %} ({{ sv_info.doctor_name }}){% endif %}</button>
+            </form>
+            {% endif %}
+            {% endwith %}
+            <button class="btn btn-primary btn-sm" onclick="openRedirectModal({{ patient.pk }}, '{{ patient.full_name|escapejs }}')">Doktorga yo'naltirish</button>
+            <button class="btn-icon" onclick="openEditPatientModal({{ patient.pk }}, '{{ patient.name|escapejs }}', '{{ patient.surname|escapejs }}', '{{ patient.phone|escapejs }}')" title="Tahrirlash">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+            </button>
+            <form method="post" action="{% url 'delete_patient' patient.pk %}" style="display:inline;" onsubmit="return confirm('Bu bemorni o\'chirmoqchimisiz?')">
+                {% csrf_token %}
+                <button class="btn-icon" style="color:var(--danger);border-color:var(--danger);" title="O'chirish">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                </button>
+            </form>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <p>Bemorlar topilmadi</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ADD PATIENT & VISIT MODAL -->
+<div class="modal-backdrop" id="addPatientModal">
+    <div class="modal">
+        <h3>Yangi bemor qo'shish</h3>
+        <form method="post" action="{% url 'add_patient' %}">
+            {% csrf_token %}
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Ism</label>
+                    <input type="text" name="name" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Familiya</label>
+                    <input type="text" name="surname" class="form-control" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Telefon (998 siz)</label>
+                <input type="text" name="phone" class="form-control" required placeholder="901234567" id="addPatientPhone" oninput="checkDuplicatePhone(this)">
+                <div id="phoneDuplicateWarning" style="display:none;color:var(--danger);font-size:12px;margin-top:4px;font-weight:600;"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tug'ilgan sana</label>
+                    <input type="date" name="birth_date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Jinsi</label>
+                    <select name="gender" class="form-control">
+                        <option value="">—</option>
+                        <option value="erkak">Erkak</option>
+                        <option value="ayol">Ayol</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Yo'nalish</label>
+                <select name="destination" class="form-control" id="addDestination" onchange="toggleDestination('add')">
+                    <option value="doctor">Doktorga</option>
+                    <option value="laboratory">Laboratoriyaga</option>
+                </select>
+            </div>
+            <div id="addDoctorSection">
+                <div class="form-group">
+                    <label>Doktor tanlang</label>
+                    <select name="doctor" class="form-control" onchange="onDoctorChange(this, 'addServicesContainer', 'addServicesGrid', 'addRoomNumber')">
+                        <option value="">— Doktorni tanlang —</option>
+                        {% for d in doctors %}
+                        <option value="{{ d.pk }}" data-service-ids="[{% for svc in d.services.all %}{{ svc.pk }}{% if not forloop.last %},{% endif %}{% endfor %}]" data-service-count="{{ d.services.count }}" data-room="{{ d.room_number }}">Dr. {{ d.full_name }}{% for svc in d.services.all %}{% if forloop.first %} — {% endif %}{{ svc.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+            <div id="addLabSection" style="display:none;">
+                <div class="form-group">
+                    <label>Lab xizmatlari qidirish</label>
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" class="form-control" id="addLabNumSearch" placeholder="№" oninput="searchLabServices('add')" style="width:60px;text-align:center;" maxlength="3">
+                        <input type="text" class="form-control" id="addLabSearch" placeholder="Xizmat nomi..." oninput="searchLabServices('add')" style="flex:1;">
+                    </div>
+                    <div id="addLabSearchResults" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:4px;display:none;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Tanlangan xizmatlar</label>
+                    <div id="addLabSelected" style="display:flex;flex-direction:column;gap:4px;"></div>
+                </div>
+            </div>
+            <div class="services-container" id="addServicesContainer">
+                <div class="form-group">
+                    <label>Xizmatlar</label>
+                    <div class="checkbox-grid" id="addServicesGrid">
+                        {% for s in services %}
+                        <label class="checkbox-item" data-sid="{{ s.pk }}">
+                            <input type="checkbox" name="services" value="{{ s.pk }}" data-sid="{{ s.pk }}">
+                            <span>{{ s.name }} — {{ s.price|format_som }} so'm</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Sana</label>
+                <input type="date" name="visit_date" class="form-control" value="{{ today_str }}">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Chegirma (so'm)</label>
+                    <input type="number" name="discount_amount" class="form-control" step="1000" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Sabab (ixtiyoriy)</label>
+                    <input type="text" name="discount_reason" class="form-control" placeholder="Chegirma sababi...">
+                </div>
+            </div>
+            {% if referral_partners %}
+            <div class="form-group">
+                <label>Yo'naltiruvchi hamkor (ixtiyoriy)</label>
+                <select name="referred_by" class="form-control">
+                    <option value="">— Tanlanmagan —</option>
+                    {% for rp in referral_partners %}
+                    <option value="{{ rp.pk }}">{{ rp.full_name }}{% if rp.clinic_name %} — {{ rp.clinic_name }}{% endif %} ({{ rp.commission_display }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addPatientModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Qo'shish va yo'naltirish</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- REDIRECT EXISTING PATIENT MODAL -->
+<div class="modal-backdrop" id="redirectPatientModal">
+    <div class="modal">
+        <h3>Bemorni yo'naltirish</h3>
+        <p style="color:var(--text-muted);margin-bottom:20px;" id="redirectPatientName"></p>
+        <form method="post" id="redirectForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Yo'nalish</label>
+                <select name="destination" class="form-control" id="redirectDestination" onchange="toggleDestination('redirect')">
+                    <option value="doctor">Doktorga</option>
+                    <option value="laboratory">Laboratoriyaga</option>
+                </select>
+            </div>
+            <div id="redirectDoctorSection">
+                <div class="form-group">
+                    <label>Doktor tanlang</label>
+                    <select name="doctor" class="form-control" onchange="onDoctorChange(this, 'redirectServicesContainer', 'redirectServicesGrid', '')">
+                        <option value="">— Doktorni tanlang —</option>
+                        {% for d in doctors %}
+                        <option value="{{ d.pk }}" data-service-ids="[{% for svc in d.services.all %}{{ svc.pk }}{% if not forloop.last %},{% endif %}{% endfor %}]" data-service-count="{{ d.services.count }}" data-room="{{ d.room_number }}">Dr. {{ d.full_name }}{% for svc in d.services.all %}{% if forloop.first %} — {% endif %}{{ svc.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="services-container" id="redirectServicesContainer">
+                    <div class="form-group">
+                        <label>Xizmatlar</label>
+                        <div class="checkbox-grid" id="redirectServicesGrid">
+                            {% for s in services %}
+                            <label class="checkbox-item" data-sid="{{ s.pk }}">
+                                <input type="checkbox" name="services" value="{{ s.pk }}" data-sid="{{ s.pk }}">
+                                <span>{{ s.name }} — {{ s.price|format_som }} so'm</span>
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <!-- Existing procedures dropdown for returning patients -->
+                <div class="form-group" id="redirectProcedureSection" style="display:none;">
+                    <label>Mavjud protsedura (ixtiyoriy)</label>
+                    <select name="existing_procedure" class="form-control" id="redirectProcedureSelect" onchange="onProcedureSelected(this)">
+                        <option value="">— Protsedura tanlang —</option>
+                    </select>
+                    <small id="redirectProcedurePrice" style="color:var(--text-muted);font-size:12px;display:none;margin-top:4px;"></small>
+                </div>
+            </div>
+            <div id="redirectLabSection" style="display:none;">
+                <div class="form-group">
+                    <label>Lab xizmatlari qidirish</label>
+                    <div style="display:flex;gap:8px;">
+                        <input type="text" class="form-control" id="redirectLabNumSearch" placeholder="№" oninput="searchLabServices('redirect')" style="width:60px;text-align:center;" maxlength="3">
+                        <input type="text" class="form-control" id="redirectLabSearch" placeholder="Xizmat nomi..." oninput="searchLabServices('redirect')" style="flex:1;">
+                    </div>
+                    <div id="redirectLabSearchResults" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;margin-top:4px;display:none;"></div>
+                </div>
+                <div class="form-group">
+                    <label>Tanlangan xizmatlar</label>
+                    <div id="redirectLabSelected" style="display:flex;flex-direction:column;gap:4px;"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Sana</label>
+                <input type="date" name="visit_date" class="form-control" value="{{ today_str }}">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Chegirma (so'm)</label>
+                    <input type="number" name="discount_amount" class="form-control" step="1000" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Sabab (ixtiyoriy)</label>
+                    <input type="text" name="discount_reason" class="form-control">
+                </div>
+            </div>
+            {% if referral_partners %}
+            <div class="form-group">
+                <label>Yo'naltiruvchi hamkor (ixtiyoriy)</label>
+                <select name="referred_by" class="form-control">
+                    <option value="">— Tanlanmagan —</option>
+                    {% for rp in referral_partners %}
+                    <option value="{{ rp.pk }}">{{ rp.full_name }}{% if rp.clinic_name %} — {{ rp.clinic_name }}{% endif %} ({{ rp.commission_display }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('redirectPatientModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Yo'naltirish</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT VISIT MODAL -->
+<div class="modal-backdrop" id="editVisitModal">
+    <div class="modal">
+        <h3>Tashrifni tahrirlash</h3>
+        <p style="color:var(--text-muted);margin-bottom:20px;" id="editVisitPatientName"></p>
+        <form method="post" id="editVisitForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Doktor</label>
+                <select name="doctor" class="form-control" id="editVisitDoctor" required onchange="onDoctorChange(this, 'editVisitServicesContainer', 'editVisitServicesGrid', null)">
+                    <option value="">— Doktorni tanlang —</option>
+                    {% for d in doctors %}
+                    <option value="{{ d.pk }}" data-service-ids="[{% for svc in d.services.all %}{{ svc.pk }}{% if not forloop.last %},{% endif %}{% endfor %}]" data-service-count="{{ d.services.count }}">Dr. {{ d.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="services-container visible" id="editVisitServicesContainer">
+                <div class="form-group">
+                    <label>Xizmatlar</label>
+                    <div class="checkbox-grid" id="editVisitServicesGrid">
+                        {% for s in services %}
+                        <label class="checkbox-item" data-sid="{{ s.pk }}">
+                            <input type="checkbox" name="services" value="{{ s.pk }}" data-sid="{{ s.pk }}">
+                            <span>{{ s.name }} — {{ s.price|format_som }} so'm</span>
+                        </label>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Chegirma (so'm)</label>
+                    <input type="number" name="discount_amount" id="editVisitDiscount" class="form-control" step="1000" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Sabab</label>
+                    <input type="text" name="discount_reason" id="editVisitDiscountReason" class="form-control">
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editVisitModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT SCHEDULED VISIT MODAL -->
+<div class="modal-backdrop" id="editScheduledModal">
+    <div class="modal">
+        <h3>Rejalashtirilgan uchrashuvni tahrirlash</h3>
+        <p style="color:var(--text-muted);margin-bottom:20px;" id="editScheduledPatientName"></p>
+        <form method="post" id="editScheduledForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Doktor</label>
+                <select name="doctor" class="form-control" id="editScheduledDoctor" required>
+                    <option value="">— Doktorni tanlang —</option>
+                    {% for d in doctors %}
+                    <option value="{{ d.pk }}">Dr. {{ d.full_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Sana</label>
+                    <input type="date" name="scheduled_date" id="editScheduledDate" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Vaqt</label>
+                    <input type="time" name="scheduled_time" id="editScheduledTime" class="form-control">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Izoh</label>
+                <textarea name="notes" id="editScheduledNotes" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editScheduledModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT PATIENT MODAL -->
+<div class="modal-backdrop" id="editPatientModal">
+    <div class="modal">
+        <h3>Bemorni tahrirlash</h3>
+        <form method="post" id="editPatientForm">
+            {% csrf_token %}
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Ism</label>
+                    <input type="text" name="name" id="editPatientName" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Familiya</label>
+                    <input type="text" name="surname" id="editPatientSurname" class="form-control" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Telefon</label>
+                <input type="text" name="phone" id="editPatientPhone" class="form-control" required>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editPatientModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+/* Collapsible sections */
+function toggleSection(sectionId, headerEl, cardId) {
+    var body = document.getElementById(sectionId);
+    body.classList.toggle('show');
+    headerEl.classList.toggle('expanded');
+    if (cardId) {
+        var card = document.getElementById(cardId);
+        card.classList.toggle('is-open', body.classList.contains('show'));
+    }
+}
+
+/* Doctor change: show/filter services, auto-select if 1 service */
+function onDoctorChange(sel, containerId, gridId, roomId) {
+    var container = document.getElementById(containerId);
+    var opt = sel.options[sel.selectedIndex];
+    if (!opt || !opt.value) {
+        container.classList.remove('visible');
+        return;
+    }
+    container.classList.add('visible');
+    var serviceIdsStr = opt.getAttribute('data-service-ids') || '[]';
+    var serviceCount = parseInt(opt.getAttribute('data-service-count') || '0');
+    var room = opt.getAttribute('data-room') || '';
+    var serviceIds = [];
+    try { serviceIds = JSON.parse(serviceIdsStr); } catch(e) {}
+
+    // Show only this doctor's services, hide others
+    document.querySelectorAll('#' + gridId + ' label.checkbox-item').forEach(function(lbl) {
+        var sid = parseInt(lbl.getAttribute('data-sid'));
+        var cb = lbl.querySelector('input');
+        if (serviceIds.indexOf(sid) !== -1) {
+            lbl.style.display = '';
+            // Auto-select if only 1 service
+            cb.checked = (serviceCount === 1);
+        } else {
+            lbl.style.display = 'none';
+            cb.checked = false;
+        }
+    });
+    if (roomId) {
+        document.getElementById(roomId).value = room;
+    }
+}
+
+/* Redirect modal: load patient procedures via AJAX */
+var currentRedirectPatientId = null;
+function openRedirectModal(pk, name) {
+    currentRedirectPatientId = pk;
+    document.getElementById('redirectForm').action = '/receptionist/redirect/' + pk + '/';
+    document.getElementById('redirectPatientName').textContent = "Yo'naltirilmoqda: " + name;
+    // Reset services
+    document.getElementById('redirectServicesContainer').classList.remove('visible');
+    document.querySelectorAll('#redirectServicesGrid input').forEach(function(c) { c.checked = false; });
+    // Reset doctor select
+    document.querySelector('#redirectForm select[name="doctor"]').value = '';
+    // Load procedures for this patient
+    var procSection = document.getElementById('redirectProcedureSection');
+    var procSelect = document.getElementById('redirectProcedureSelect');
+    procSelect.innerHTML = '<option value="">— Protsedura tanlang —</option>';
+    document.getElementById('redirectProcedurePrice').style.display = 'none';
+    fetch('/api/patient/' + pk + '/procedures/')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.procedures && data.procedures.length > 0) {
+                data.procedures.forEach(function(p) {
+                    var opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.description;
+                    opt.setAttribute('data-price', p.price_per_session);
+                    procSelect.appendChild(opt);
+                });
+                procSection.style.display = 'block';
+            } else {
+                procSection.style.display = 'none';
+            }
+        })
+        .catch(function() { procSection.style.display = 'none'; });
+    openModal('redirectPatientModal');
+}
+
+function onProcedureSelected(sel) {
+    var opt = sel.options[sel.selectedIndex];
+    var priceEl = document.getElementById('redirectProcedurePrice');
+    if (opt && opt.value) {
+        var price = opt.getAttribute('data-price');
+        priceEl.textContent = 'Seans narxi: ' + Number(price).toLocaleString() + " so'm";
+        priceEl.style.display = 'block';
+    } else {
+        priceEl.style.display = 'none';
+    }
+}
+
+function openEditPatientModal(pk, name, surname, phone) {
+    document.getElementById('editPatientForm').action = '/receptionist/edit/' + pk + '/';
+    document.getElementById('editPatientName').value = name;
+    document.getElementById('editPatientSurname').value = surname;
+    document.getElementById('editPatientPhone').value = phone;
+    openModal('editPatientModal');
+}
+
+function openEditVisitModal(visitPk, patientName, doctorId, serviceIds, discount, discountReason) {
+    document.getElementById('editVisitForm').action = '/receptionist/visit/' + visitPk + '/edit/';
+    document.getElementById('editVisitPatientName').textContent = patientName;
+    document.getElementById('editVisitDoctor').value = doctorId;
+    // Filter and select services for this doctor
+    var doctorSel = document.getElementById('editVisitDoctor');
+    if (doctorId) {
+        onDoctorChange(doctorSel, 'editVisitServicesContainer', 'editVisitServicesGrid', null);
+    }
+    document.querySelectorAll('#editVisitServicesGrid input').forEach(function(c) {
+        if (serviceIds.indexOf(parseInt(c.getAttribute('data-sid'))) !== -1) {
+            c.checked = true;
+        }
+    });
+    document.getElementById('editVisitDiscount').value = discount;
+    document.getElementById('editVisitDiscountReason').value = discountReason;
+    openModal('editVisitModal');
+}
+
+function openEditScheduledModal(pk, patientName, doctorId, date, time, notes) {
+    document.getElementById('editScheduledForm').action = '/receptionist/schedule/edit/' + pk + '/';
+    document.getElementById('editScheduledPatientName').textContent = patientName;
+    document.getElementById('editScheduledDoctor').value = doctorId;
+    document.getElementById('editScheduledDate').value = date;
+    document.getElementById('editScheduledTime').value = time;
+    document.getElementById('editScheduledNotes').value = notes;
+    openModal('editScheduledModal');
+}
+
+/* Live search autocomplete */
+var searchTimer;
+var searchInput = document.getElementById('searchInput');
+var dropdown = document.getElementById('searchDropdown');
+
+searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    var q = this.value.trim();
+    if (q.length < 2) { dropdown.style.display = 'none'; return; }
+    searchTimer = setTimeout(function() {
+        fetch('/api/patient-search/?q=' + encodeURIComponent(q))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.results || data.results.length === 0) {
+                    dropdown.style.display = 'none'; return;
+                }
+                dropdown.innerHTML = data.results.map(function(p) {
+                    return '<div class="search-dropdown-item" onclick="window.location=\'?search=' + encodeURIComponent(p.phone) + '\'">' +
+                        '<strong>' + p.name + '</strong>' +
+                        '<span style="color:var(--text-muted);margin-left:8px;">' + p.phone + '</span></div>';
+                }).join('');
+                dropdown.style.display = 'block';
+            });
+    }, 300);
+});
+
+document.addEventListener('click', function(e) {
+    if (!dropdown.contains(e.target) && e.target !== searchInput) {
+        dropdown.style.display = 'none';
+    }
+});
+
+/* Destination toggle (doctor vs lab) */
+function toggleDestination(prefix) {
+    var dest = document.getElementById(prefix + 'Destination').value;
+    var doctorSection = document.getElementById(prefix + 'DoctorSection');
+    var labSection = document.getElementById(prefix + 'LabSection');
+    if (dest === 'laboratory') {
+        doctorSection.style.display = 'none';
+        labSection.style.display = 'block';
+        // Remove required from doctor select
+        var docSel = doctorSection.querySelector('select[name="doctor"]');
+        if (docSel) docSel.removeAttribute('required');
+    } else {
+        doctorSection.style.display = 'block';
+        labSection.style.display = 'none';
+    }
+}
+
+/* Check duplicate phone */
+var phoneCheckTimer;
+function checkDuplicatePhone(input) {
+    clearTimeout(phoneCheckTimer);
+    var warning = document.getElementById('phoneDuplicateWarning');
+    var submitBtn = input.closest('form').querySelector('button[type="submit"]');
+    var phone = input.value.replace(/\s+/g, '').replace(/^\+998/, '').replace(/^998/, '');
+    if (phone.length < 9) {
+        warning.style.display = 'none';
+        submitBtn.disabled = false;
+        submitBtn.style.opacity = '1';
+        return;
+    }
+    phoneCheckTimer = setTimeout(function() {
+        fetch('/api/check-phone/?phone=' + encodeURIComponent(phone))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.exists) {
+                    warning.innerHTML = '\u26A0 Bu raqam allaqachon ro\'yxatdan o\'tgan: <strong>' + data.patient_name + '</strong>';
+                    warning.style.display = 'block';
+                    submitBtn.disabled = true;
+                    submitBtn.style.opacity = '0.5';
+                } else {
+                    warning.style.display = 'none';
+                    submitBtn.disabled = false;
+                    submitBtn.style.opacity = '1';
+                }
+            });
+    }, 300);
+}
+
+/* Lab services instant search */
+var labSearchTimer;
+function searchLabServices(prefix) {
+    clearTimeout(labSearchTimer);
+    var q = document.getElementById(prefix + 'LabSearch').value.trim();
+    var numEl = document.getElementById(prefix + 'LabNumSearch');
+    var num = numEl ? numEl.value.trim() : '';
+    var resultsDiv = document.getElementById(prefix + 'LabSearchResults');
+    if (q.length < 1 && num.length < 1) { resultsDiv.style.display = 'none'; return; }
+    labSearchTimer = setTimeout(function() {
+        fetch('/api/lab-services/search/?q=' + encodeURIComponent(q) + '&num=' + encodeURIComponent(num))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data.results || data.results.length === 0) {
+                    resultsDiv.innerHTML = '<div style="padding:8px;color:var(--text-muted);">Topilmadi</div>';
+                    resultsDiv.style.display = 'block';
+                    return;
+                }
+                resultsDiv.innerHTML = data.results.map(function(s) {
+                    return '<div class="search-dropdown-item" style="padding:8px 12px;cursor:pointer;border-bottom:1px solid var(--border);" onclick="addLabService(\'' + prefix + '\', ' + s.number + ', \'' + s.name.replace(/'/g, "\\'") + '\', ' + s.price + ')">' +
+                        '<strong>#' + s.number + '</strong> ' + s.name +
+                        ' <span style="color:var(--text-muted);float:right;">' + Number(s.price).toLocaleString() + " so'm</span></div>";
+                }).join('');
+                resultsDiv.style.display = 'block';
+            });
+    }, 200);
+}
+
+function addLabService(prefix, number, name, price) {
+    var container = document.getElementById(prefix + 'LabSelected');
+    // Prevent duplicates
+    if (container.querySelector('[data-lab-num="' + number + '"]')) return;
+    var row = document.createElement('div');
+    row.setAttribute('data-lab-num', number);
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--bg-secondary);border-radius:6px;font-size:13px;';
+    row.innerHTML = '<input type="hidden" name="lab_services" value="' + number + '">' +
+        '<span style="flex:1;"><strong>#' + number + '</strong> ' + name + '</span>' +
+        '<span style="color:var(--text-muted);">' + Number(price).toLocaleString() + " so'm</span>" +
+        '<button type="button" style="background:none;border:none;cursor:pointer;color:var(--danger);font-size:16px;" onclick="this.parentElement.remove()">&times;</button>';
+    container.appendChild(row);
+    document.getElementById(prefix + 'LabSearchResults').style.display = 'none';
+    document.getElementById(prefix + 'LabSearch').value = '';
+}
+
+document.querySelectorAll('.modal-backdrop').forEach(function(m) {
+    m.addEventListener('click', function(e) { if (e.target === m) m.classList.remove('active'); });
+});
+
+/* Validation: prevent redirect/add without choosing doctor+service or lab service */
+function validateRedirectForm(form) {
+    var dest = form.querySelector('select[name="destination"]').value;
+    if (dest === 'doctor') {
+        var doctorSelect = form.querySelector('select[name="doctor"]');
+        if (!doctorSelect || !doctorSelect.value) {
+            alert('Iltimos, doktorni tanlang!');
+            return false;
+        }
+        var checkedServices = form.querySelectorAll('input[name="services"]:checked');
+        var selectedProcedure = form.querySelector('select[name="existing_procedure"]');
+        var hasProcedure = selectedProcedure && selectedProcedure.value;
+        if (checkedServices.length === 0 && !hasProcedure) {
+            alert('Iltimos, kamida bitta xizmat yoki protsedura tanlang!');
+            return false;
+        }
+    } else if (dest === 'laboratory') {
+        var labInputs = form.querySelectorAll('input[name="lab_services"]');
+        if (labInputs.length === 0) {
+            alert('Iltimos, kamida bitta lab xizmatini tanlang!');
+            return false;
+        }
+    }
+    return true;
+}
+
+var redirectForm = document.getElementById('redirectForm');
+if (redirectForm) {
+    redirectForm.addEventListener('submit', function(e) {
+        if (!validateRedirectForm(this)) { e.preventDefault(); }
+    });
+}
+
+var addForm = document.querySelector('#addPatientModal form');
+if (addForm) {
+    addForm.addEventListener('submit', function(e) {
+        if (!validateRedirectForm(this)) { e.preventDefault(); }
+    });
+}
+</script>
+{% endblock %}

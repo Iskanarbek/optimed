@@ -1,0 +1,1867 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}{{ patient.full_name }} — Bemor{% endblock %}
+{% block nav_doctor %}active{% endblock %}
+
+{% block content %}
+<style>
+.history-edit-btn {
+    background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
+    font-size: 11px; cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;
+    transition: all 0.2s;
+}
+.history-edit-btn:hover { border-color: var(--primary); color: var(--primary); }
+.edit-visit-backdrop {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5); backdrop-filter: blur(4px);
+    display: none; z-index: 1000; justify-content: center; align-items: flex-start; padding: 40px 20px;
+    overflow-y: auto;
+}
+.edit-visit-backdrop.active { display: flex; }
+.edit-visit-panel {
+    background: var(--white); border-radius: 12px; padding: 24px; width: 100%; max-width: 700px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-height: 90vh; overflow-y: auto;
+}
+.ref-krt-row {
+    display: grid; grid-template-columns: 50px 1fr 1fr 1fr; gap: 8px; align-items: end; margin-bottom: 8px;
+}
+.ref-krt-label {
+    font-weight: 700; font-size: 13px; padding-bottom: 8px;
+}
+/* Tibbiy yozuv buttons row */
+.med-buttons-row { display: flex; gap: 8px; margin: 16px 0 12px; flex-wrap: wrap; }
+.med-buttons-row .btn { font-size: 13px; padding: 8px 16px; }
+/* Non-empty fields display */
+.med-field-display { margin-bottom: 6px; font-size: 13px; line-height: 1.5; }
+.med-field-display .med-lbl { font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-weight: 700; }
+.med-field-display .med-val { display: block; margin-top: 1px; }
+/* Compact VA/REF/KRT/IOP display */
+.compact-data { padding: 4px 16px; font-size: 11px; border-bottom: 1px solid var(--border); }
+.compact-data strong { color: var(--text-muted); font-size: 9px; text-transform: uppercase; }
+.compact-data table { width: 100%; font-size: 11px; margin-top: 2px; }
+.compact-data td { padding: 1px 4px; }
+.compact-data .data-actions { display: flex; gap: 4px; margin-top: 2px; }
+.compact-data .data-actions button, .compact-data .data-actions a {
+    background: none; border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px;
+    font-size: 10px; cursor: pointer; color: var(--text-muted); text-decoration: none; display: inline-flex; align-items: center; gap: 2px;
+}
+.compact-data .data-actions button:hover, .compact-data .data-actions a:hover { border-color: var(--primary); color: var(--primary); }
+/* VA sub-table headers */
+.va-section-title { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; margin: 2px 0 1px; letter-spacing: 0.5px; }
+/* Form overlay for A4 forms */
+.form-overlay {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(6px);
+    display: none; z-index: 2000; justify-content: center; align-items: flex-start;
+    padding: 30px 20px; overflow-y: auto;
+}
+.form-overlay.active { display: flex; }
+.form-overlay-inner {
+    background: #fff; border-radius: 8px; padding: 32px; width: 100%; max-width: 800px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4); position: relative;
+}
+.form-overlay-close {
+    position: absolute; top: 12px; right: 16px; background: none; border: none;
+    font-size: 24px; cursor: pointer; color: var(--text-muted); z-index: 10;
+}
+.form-overlay-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border); }
+/* A4 form styles */
+.a4-form { font-size: 12px; line-height: 1.5; }
+.a4-form .a4-title { text-align: center; font-size: 15px; font-weight: 600; margin-bottom: 12px; }
+.a4-form .a4-row { display: flex; gap: 4px; margin-bottom: 3px; align-items: flex-start; flex-wrap: wrap; }
+.a4-form .a4-lbl { color: var(--text-muted); }
+.a4-form .a4-ru { color: var(--text-muted); font-size: 11px; }
+.a4-form .a4-sep { border: none; border-top: 0.5px solid var(--border); margin: 8px 0; }
+.a4-form table { width: 100%; border-collapse: collapse; margin: 4px 0 8px; }
+.a4-form td, .a4-form th { border: 0.5px solid var(--border); padding: 3px 6px; font-size: 11px; text-align: center; }
+.a4-form th { background: var(--bg); font-weight: 600; }
+.a4-form td.l { text-align: left; }
+.a4-form .a4-sig { text-align: right; margin-top: 12px; font-size: 11px; color: var(--text-muted); border-top: 0.5px solid var(--border); padding-top: 8px; }
+/* Form history cards */
+.form-history-card {
+    border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; background: var(--white); overflow: hidden;
+}
+.form-history-header {
+    padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; cursor: pointer;
+    font-size: 13px; font-weight: 600; background: var(--bg);
+}
+.form-history-header:hover { background: var(--border); }
+.form-history-header .form-type-badge {
+    font-size: 10px; padding: 2px 8px; border-radius: 4px; font-weight: 600;
+}
+.form-history-header .form-type-badge.eye-exam { background: #e0f2fe; color: #0369a1; }
+.form-history-header .form-type-badge.discharge { background: #fef3c7; color: #92400e; }
+/* Inline form card view/edit */
+.inline-card-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; margin-bottom: 8px; }
+.inline-field { font-size: 13px; }
+.inline-field .inline-lbl { display: block; font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.4px; font-weight: 700; margin-bottom: 2px; }
+.inline-field-full { font-size: 13px; margin-bottom: 8px; }
+.inline-field-full .inline-lbl { display: block; font-size: 10px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.4px; font-weight: 700; margin-bottom: 2px; }
+.inline-section-title { font-size: 10px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; margin: 10px 0 4px; }
+.inline-table-wrap { overflow-x: auto; margin-bottom: 8px; }
+.inline-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.inline-table th, .inline-table td { border: 1px solid var(--border); padding: 4px 8px; text-align: center; }
+.inline-table th { background: var(--bg); font-weight: 600; }
+.inline-table td.l { text-align: left; }
+.inline-edit-group { margin-bottom: 8px; }
+.inline-edit-group label { display: block; font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; }
+.inline-edit-group .form-control { font-size: 13px; padding: 5px 8px; }
+/* Modal wide for A4 forms */
+.modal-wide { max-width: 850px; }
+.modal-wide .modal { max-width: 850px; width: 100%; max-height: 90vh; overflow-y: auto; }
+/* Print styles */
+@media print {
+    body * { visibility: hidden; }
+    .form-overlay-inner, .form-overlay-inner * { visibility: visible; }
+    .form-overlay-inner { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border-radius: 0; }
+    .form-overlay-close, .form-overlay-actions, .no-print { display: none !important; }
+}
+</style>
+<div class="detail-header">
+    <a href="{% url 'doctor_panel' doctor.pk %}" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Panelga qaytish
+    </a>
+</div>
+
+<div class="page-header">
+    <div>
+        <h1>{{ patient.full_name }}</h1>
+        <p>{{ patient.phone }}
+            {% if patient.gender %} &middot; {{ patient.get_gender_display }}{% endif %}
+            {% if patient.age %} &middot; {{ patient.age }} yosh{% endif %}
+        </p>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <a href="{% url 'doctor_patient_full_history' doctor.pk patient.pk %}" class="btn btn-secondary">To'liq tarix</a>
+        {% if active_visit %}
+        <form method="post" action="{% url 'doctor_complete_visit' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <button class="btn btn-success">Tugatish</button>
+        </form>
+        {% endif %}
+    </div>
+</div>
+
+<div class="detail-grid">
+    <!-- LEFT: ACTIVE VISIT FORM OR PATIENT INFO -->
+    <div>
+        {% if active_visit %}
+        <div class="card animate-in">
+            <div class="card-header">
+                <h3>Hozirgi tashrif</h3>
+                <span class="badge badge-info">{{ active_visit.get_status_display }}</span>
+            </div>
+            <form method="post" action="{% url 'doctor_update_visit' doctor.pk active_visit.pk %}" enctype="multipart/form-data" id="mainVisitForm">
+                {% csrf_token %}
+                <div class="form-group">
+                    <label>Jinsi</label>
+                    <select name="gender" class="form-control">
+                        <option value="">—</option>
+                        <option value="erkak" {% if patient.gender == 'erkak' %}selected{% endif %}>Erkak</option>
+                        <option value="ayol" {% if patient.gender == 'ayol' %}selected{% endif %}>Ayol</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Tug'ilgan sana <span id="autoAge" style="color:var(--text-muted);font-weight:400;font-size:12px;">{% if patient.birth_date %}({{ patient.age }} yosh){% endif %}</span></label>
+                    <input type="date" name="birth_date" class="form-control" value="{{ patient.birth_date|date:'Y-m-d' }}" onchange="updateAutoAge(this)">
+                </div>
+                <div class="form-group">
+                    <label>Manzil</label>
+                    <input type="text" name="address" class="form-control" value="{{ patient.address }}" placeholder="Shahar, ko'cha...">
+                </div>
+
+                {% if referral_partners %}
+                <div class="form-group">
+                    <label>Yo'naltiruvchi hamkor</label>
+                    <select name="referred_by" class="form-control">
+                        <option value="">— Tanlanmagan —</option>
+                        {% for rp in referral_partners %}
+                        <option value="{{ rp.pk }}" {% if active_visit.referred_by_id == rp.pk %}selected{% endif %}>{{ rp.full_name }}{% if rp.clinic_name %} — {{ rp.clinic_name }}{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+
+                <div style="border-top:1px solid var(--border);margin:20px 0;padding-top:20px;">
+                    <h4 style="font-size:14px;font-weight:600;margin-bottom:8px;">Tibbiy yozuv</h4>
+
+                    <!-- Top 3 new buttons -->
+                    <div class="med-buttons-row" style="margin-bottom:8px;">
+                        <button type="button" class="btn btn-secondary" onclick="openModal('lasikModal')">LASIK <span style="color:var(--text-muted);font-size:10px;font-weight:400;">(ЛАСИК)</span></button>
+                        <button type="button" class="btn btn-secondary" onclick="openModal('strabismusModal')">Ko'squlilik <span style="color:var(--text-muted);font-size:10px;font-weight:400;">(Косоглазие)</span></button>
+                        <button type="button" class="btn btn-secondary" onclick="openModal('postopModal')">Oper. ko'chirma <span style="color:var(--text-muted);font-size:10px;font-weight:400;">(Операционная выписка)</span></button>
+                    </div>
+                    <!-- Tibbiy yozuv -->
+                    <div style="margin-bottom:8px;">
+                        <button type="button" class="btn btn-primary" onclick="openModal('tibbiyYozuvModal')">Tibbiy yozuv</button>
+                    </div>
+                    <!-- EURO standart section -->
+                    <div style="border:1px solid var(--border);border-radius:8px;padding:10px 12px;">
+                        <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">EURO standart</div>
+                        <div class="med-buttons-row">
+                            <button type="button" class="btn btn-secondary" onclick="openModal('kozKorigiModal')">Ko'z ko'rigi</button>
+                            <button type="button" class="btn btn-secondary" onclick="openModal('vipiskaModal')">Ko'chirma</button>
+                        </div>
+                    </div>
+
+                    <!-- Tibbiy yozuv FILE CARD -->
+                    <div class="form-history-card" style="cursor:pointer;margin-top:8px;" onclick="openDocOverlay('tyFileOverlay{{ active_visit.pk }}')">
+                        <div class="form-history-header">
+                            <div>
+                                <span class="form-type-badge" style="background:#fce7f3;color:#9d174d;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;">Tibbiy yozuv</span>
+                                <span style="margin-left:8px;font-size:12px;color:var(--text-muted);">{{ active_visit.created_at|date:"d.m.Y" }} &middot; Ko'rish uchun bosing</span>
+                            </div>
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        </div>
+                    </div>
+                    <!-- Tibbiy yozuv file overlay (print-ready) -->
+                    <div class="form-overlay" id="tyFileOverlay{{ active_visit.pk }}" onclick="if(event.target===this)closeDocOverlay('tyFileOverlay{{ active_visit.pk }}')">
+                        <div class="form-overlay-inner" style="max-width:800px;">
+                            <div class="form-overlay-actions no-print" style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+                                <button class="btn btn-primary btn-sm" onclick="window.print()">Chop etish</button>
+                                <button class="btn btn-secondary btn-sm" onclick="closeDocOverlay('tyFileOverlay{{ active_visit.pk }}')">✕ Yopish</button>
+                            </div>
+                            {% include 'receptionist/document_tibbiy_yozuv.html' with doc=active_visit %}
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+        {% else %}
+        <div class="card animate-in">
+            <div class="card-header"><h3>Bemor ma'lumotlari</h3></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div><div class="stat-label">Telefon</div><div style="font-weight:600;">{{ patient.phone }}</div></div>
+                {% if patient.gender %}<div><div class="stat-label">Jinsi</div><div style="font-weight:600;">{{ patient.get_gender_display }}</div></div>{% endif %}
+                {% if patient.age %}<div><div class="stat-label">Yoshi</div><div style="font-weight:600;">{{ patient.age }}</div></div>{% endif %}
+                {% if patient.address %}<div><div class="stat-label">Manzil</div><div style="font-weight:600;">{{ patient.address }}</div></div>{% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- TIBBIY HUJJATLAR: all 6 form types, view-only for doctor -->
+        {% if eye_exam_forms or discharge_forms or lasik_forms or strabismus_forms or postop_forms %}
+        <div class="card animate-in" style="margin-top:16px;">
+            <div class="card-header"><h3>Tibbiy hujjatlar</h3></div>
+
+            {% for exam in eye_exam_forms %}
+            <div class="form-history-card" style="cursor:pointer;" onclick="openDocOverlay('examOverlay{{ exam.pk }}')">
+                <div class="form-history-header">
+                    <div>
+                        <span class="form-type-badge eye-exam">Ko'z ko'rigi</span>
+                        <span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ exam.protocol_number }} &middot; {{ exam.created_at|date:"d.m.Y" }}</span>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </div>
+            </div>
+            <!-- A4 Overlay: Ko'z ko'rigi -->
+            <div class="form-overlay" id="examOverlay{{ exam.pk }}" onclick="if(event.target===this)closeDocOverlay('examOverlay{{ exam.pk }}')">
+                <div style="background:var(--white);border-radius:12px;padding:20px;width:100%;max-width:780px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+                        <div>
+                            <span class="form-type-badge eye-exam">Ko'z ko'rigi</span>
+                            <span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ exam.protocol_number }} &middot; {{ exam.created_at|date:"d.m.Y" }} &middot; {% if exam.doctor %}Dr. {{ exam.doctor.full_name }}{% else %}—{% endif %}</span>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="closeDocOverlay('examOverlay{{ exam.pk }}')">✕ Yopish</button>
+                        </div>
+                    </div>
+                    <!-- VIEW MODE -->
+                    <div id="examView{{ exam.pk }}" style="padding:4px 0;">
+                        <div class="inline-card-grid">
+                            <div class="inline-field"><span class="inline-lbl">Bemor</span><span>{{ patient.full_name }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Shifokor</span><span>{% if exam.doctor %}Dr. {{ exam.doctor.full_name }}{% else %}—{% endif %}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Protokol №</span><span>{{ exam.protocol_number }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Kelish sanasi</span><span>{{ exam.kelish_sanasi|date:"d.m.Y H:i"|default:"—" }}</span></div>
+                        </div>
+                        {% if exam.koz_anamezi %}<div class="inline-field-full"><span class="inline-lbl">Ko'z anamezi</span><span>{{ exam.koz_anamezi }}</span></div>{% endif %}
+                        <div class="inline-section-title">Refraktsiya</div>
+                        <div class="inline-table-wrap">
+                            <table class="inline-table"><thead><tr><th></th><th colspan="3">O'NG</th><th colspan="3">CHAP</th></tr><tr><th></th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SPH</th><th>CYL</th><th>AXIS</th></tr></thead><tbody>
+                            <tr><td class="l">Refraktsiya</td><td>{{ exam.ref_ong_sph|default:"—" }}</td><td>{{ exam.ref_ong_cyl|default:"—" }}</td><td>{{ exam.ref_ong_axis|default:"—" }}</td><td>{{ exam.ref_chap_sph|default:"—" }}</td><td>{{ exam.ref_chap_cyl|default:"—" }}</td><td>{{ exam.ref_chap_axis|default:"—" }}</td></tr>
+                            <tr><td class="l">Subyektiv</td><td>{{ exam.sub_ref_ong_sph|default:"—" }}</td><td>{{ exam.sub_ref_ong_cyl|default:"—" }}</td><td>{{ exam.sub_ref_ong_axis|default:"—" }}</td><td>{{ exam.sub_ref_chap_sph|default:"—" }}</td><td>{{ exam.sub_ref_chap_cyl|default:"—" }}</td><td>{{ exam.sub_ref_chap_axis|default:"—" }}</td></tr>
+                            <tr><td class="l">Sikloplejili</td><td>{{ exam.sik_ref_ong_sph|default:"—" }}</td><td>{{ exam.sik_ref_ong_cyl|default:"—" }}</td><td>{{ exam.sik_ref_ong_axis|default:"—" }}</td><td>{{ exam.sik_ref_chap_sph|default:"—" }}</td><td>{{ exam.sik_ref_chap_cyl|default:"—" }}</td><td>{{ exam.sik_ref_chap_axis|default:"—" }}</td></tr>
+                            </tbody></table>
+                        </div>
+                        <div class="inline-card-grid">
+                            <div class="inline-field"><span class="inline-lbl">Tuzatilmagan ko'rish O'ng</span><span>{{ exam.tuzatilmagan_korish_ong|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Tuzatilmagan ko'rish Chap</span><span>{{ exam.tuzatilmagan_korish_chap|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Tuzatilgan ko'rish O'ng</span><span>{{ exam.tuzatilgan_korish_ong|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Tuzatilgan ko'rish Chap</span><span>{{ exam.tuzatilgan_korish_chap|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Old segment O'ng</span><span>{{ exam.old_segment_ong|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Old segment Chap</span><span>{{ exam.old_segment_chap|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Orqa segment O'ng</span><span>{{ exam.orqa_segment_ong|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Orqa segment Chap</span><span>{{ exam.orqa_segment_chap|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Ko'z bosimi O'ng</span><span>{{ exam.koz_bosimi_ong|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Ko'z bosimi Chap</span><span>{{ exam.koz_bosimi_chap|default:"—" }}</span></div>
+                        </div>
+                        {% if exam.oyku %}<div class="inline-field-full"><span class="inline-lbl">Tarix</span><span>{{ exam.oyku }}</span></div>{% endif %}
+                        <div class="inline-section-title">Ko'z oynak retsepti</div>
+                        <div class="inline-table-wrap">
+                            <table class="inline-table"><thead><tr><th></th><th></th><th>SPH</th><th>CYL</th><th>AXIS</th></tr></thead><tbody>
+                            <tr><td class="l" rowspan="2">Uzoq</td><td>O'ng</td><td>{{ exam.uzoq_ong_sph|default:"—" }}</td><td>{{ exam.uzoq_ong_cyl|default:"—" }}</td><td>{{ exam.uzoq_ong_axis|default:"—" }}</td></tr>
+                            <tr><td>Chap</td><td>{{ exam.uzoq_chap_sph|default:"—" }}</td><td>{{ exam.uzoq_chap_cyl|default:"—" }}</td><td>{{ exam.uzoq_chap_axis|default:"—" }}</td></tr>
+                            <tr><td class="l" rowspan="2">Yaqin</td><td>O'ng</td><td>{{ exam.yaqin_ong_sph|default:"—" }}</td><td>{{ exam.yaqin_ong_cyl|default:"—" }}</td><td>{{ exam.yaqin_ong_axis|default:"—" }}</td></tr>
+                            <tr><td>Chap</td><td>{{ exam.yaqin_chap_sph|default:"—" }}</td><td>{{ exam.yaqin_chap_cyl|default:"—" }}</td><td>{{ exam.yaqin_chap_axis|default:"—" }}</td></tr>
+                            </tbody></table>
+                        </div>
+                        <div class="inline-card-grid">
+                            <div class="inline-field"><span class="inline-lbl">Linza O'ng / Chap</span><span>{{ exam.linza_ong|default:"—" }} / {{ exam.linza_chap|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Diametr O'ng / Chap</span><span>{{ exam.diametr_ong|default:"—" }} / {{ exam.diametr_chap|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Radius O'ng / Chap</span><span>{{ exam.radius_ong|default:"—" }} / {{ exam.radius_chap|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Dioptriya O'ng / Chap</span><span>{{ exam.dioptriya_ong|default:"—" }} / {{ exam.dioptriya_chap|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">ICD kodi</span><span>{{ exam.icd_kodi|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">ICD nomi</span><span>{{ exam.icd_nomi|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Tashxis turi</span><span>{{ exam.tashxis_turi|default:"—" }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Yo'nalish</span><span>{{ exam.yonalish|default:"—" }}</span></div>
+                        </div>
+                    </div>
+                    <!-- EDIT MODE -->
+                    <div id="examEdit{{ exam.pk }}" style="display:none;padding:4px 0;">
+                        <form method="post" action="{% url 'doctor_edit_eye_exam' doctor.pk exam.pk %}">
+                            {% csrf_token %}
+                            <div class="inline-edit-group"><label>Ko'z anamezi</label><textarea name="koz_anamezi" class="form-control" rows="2">{{ exam.koz_anamezi }}</textarea></div>
+                            <div class="inline-section-title">Refraktsiya — O'ng</div>
+                            <div class="inline-card-grid">
+                                <div class="inline-edit-group"><label>REF O'ng SPH</label><input name="ref_ong_sph" class="form-control" value="{{ exam.ref_ong_sph }}"></div>
+                                <div class="inline-edit-group"><label>REF O'ng CYL</label><input name="ref_ong_cyl" class="form-control" value="{{ exam.ref_ong_cyl }}"></div>
+                                <div class="inline-edit-group"><label>REF O'ng AXIS</label><input name="ref_ong_axis" class="form-control" value="{{ exam.ref_ong_axis }}"></div>
+                                <div class="inline-edit-group"><label>Sub REF O'ng SPH</label><input name="sub_ref_ong_sph" class="form-control" value="{{ exam.sub_ref_ong_sph }}"></div>
+                                <div class="inline-edit-group"><label>Sub REF O'ng CYL</label><input name="sub_ref_ong_cyl" class="form-control" value="{{ exam.sub_ref_ong_cyl }}"></div>
+                                <div class="inline-edit-group"><label>Sub REF O'ng AXIS</label><input name="sub_ref_ong_axis" class="form-control" value="{{ exam.sub_ref_ong_axis }}"></div>
+                                <div class="inline-edit-group"><label>Sik REF O'ng SPH</label><input name="sik_ref_ong_sph" class="form-control" value="{{ exam.sik_ref_ong_sph }}"></div>
+                                <div class="inline-edit-group"><label>Sik REF O'ng CYL</label><input name="sik_ref_ong_cyl" class="form-control" value="{{ exam.sik_ref_ong_cyl }}"></div>
+                                <div class="inline-edit-group"><label>Sik REF O'ng AXIS</label><input name="sik_ref_ong_axis" class="form-control" value="{{ exam.sik_ref_ong_axis }}"></div>
+                            </div>
+                            <div class="inline-section-title">Refraktsiya — Chap</div>
+                            <div class="inline-card-grid">
+                                <div class="inline-edit-group"><label>REF Chap SPH</label><input name="ref_chap_sph" class="form-control" value="{{ exam.ref_chap_sph }}"></div>
+                                <div class="inline-edit-group"><label>REF Chap CYL</label><input name="ref_chap_cyl" class="form-control" value="{{ exam.ref_chap_cyl }}"></div>
+                                <div class="inline-edit-group"><label>REF Chap AXIS</label><input name="ref_chap_axis" class="form-control" value="{{ exam.ref_chap_axis }}"></div>
+                                <div class="inline-edit-group"><label>Sub REF Chap SPH</label><input name="sub_ref_chap_sph" class="form-control" value="{{ exam.sub_ref_chap_sph }}"></div>
+                                <div class="inline-edit-group"><label>Sub REF Chap CYL</label><input name="sub_ref_chap_cyl" class="form-control" value="{{ exam.sub_ref_chap_cyl }}"></div>
+                                <div class="inline-edit-group"><label>Sub REF Chap AXIS</label><input name="sub_ref_chap_axis" class="form-control" value="{{ exam.sub_ref_chap_axis }}"></div>
+                                <div class="inline-edit-group"><label>Sik REF Chap SPH</label><input name="sik_ref_chap_sph" class="form-control" value="{{ exam.sik_ref_chap_sph }}"></div>
+                                <div class="inline-edit-group"><label>Sik REF Chap CYL</label><input name="sik_ref_chap_cyl" class="form-control" value="{{ exam.sik_ref_chap_cyl }}"></div>
+                                <div class="inline-edit-group"><label>Sik REF Chap AXIS</label><input name="sik_ref_chap_axis" class="form-control" value="{{ exam.sik_ref_chap_axis }}"></div>
+                            </div>
+                            <div class="inline-section-title">Ko'rish</div>
+                            <div class="inline-card-grid">
+                                <div class="inline-edit-group"><label>Tuzatilmagan O'ng</label><input name="tuzatilmagan_korish_ong" class="form-control" value="{{ exam.tuzatilmagan_korish_ong }}"></div>
+                                <div class="inline-edit-group"><label>Tuzatilmagan Chap</label><input name="tuzatilmagan_korish_chap" class="form-control" value="{{ exam.tuzatilmagan_korish_chap }}"></div>
+                                <div class="inline-edit-group"><label>Tuzatilgan O'ng</label><input name="tuzatilgan_korish_ong" class="form-control" value="{{ exam.tuzatilgan_korish_ong }}"></div>
+                                <div class="inline-edit-group"><label>Tuzatilgan Chap</label><input name="tuzatilgan_korish_chap" class="form-control" value="{{ exam.tuzatilgan_korish_chap }}"></div>
+                                <div class="inline-edit-group"><label>Old segment O'ng</label><input name="old_segment_ong" class="form-control" value="{{ exam.old_segment_ong }}"></div>
+                                <div class="inline-edit-group"><label>Old segment Chap</label><input name="old_segment_chap" class="form-control" value="{{ exam.old_segment_chap }}"></div>
+                                <div class="inline-edit-group"><label>Orqa segment O'ng</label><input name="orqa_segment_ong" class="form-control" value="{{ exam.orqa_segment_ong }}"></div>
+                                <div class="inline-edit-group"><label>Orqa segment Chap</label><input name="orqa_segment_chap" class="form-control" value="{{ exam.orqa_segment_chap }}"></div>
+                                <div class="inline-edit-group"><label>Ko'z bosimi O'ng</label><input name="koz_bosimi_ong" class="form-control" value="{{ exam.koz_bosimi_ong }}"></div>
+                                <div class="inline-edit-group"><label>Ko'z bosimi Chap</label><input name="koz_bosimi_chap" class="form-control" value="{{ exam.koz_bosimi_chap }}"></div>
+                            </div>
+                            <div class="inline-edit-group"><label>Tarix (oyku)</label><textarea name="oyku" class="form-control" rows="2">{{ exam.oyku }}</textarea></div>
+                            <div class="inline-section-title">Ko'z oynak retsepti</div>
+                            <div class="inline-card-grid">
+                                <div class="inline-edit-group"><label>Uzoq O'ng SPH/CYL/AXIS</label>
+                                    <div style="display:flex;gap:4px;"><input name="uzoq_ong_sph" class="form-control" value="{{ exam.uzoq_ong_sph }}" placeholder="SPH"><input name="uzoq_ong_cyl" class="form-control" value="{{ exam.uzoq_ong_cyl }}" placeholder="CYL"><input name="uzoq_ong_axis" class="form-control" value="{{ exam.uzoq_ong_axis }}" placeholder="AXIS"></div>
+                                </div>
+                                <div class="inline-edit-group"><label>Uzoq Chap SPH/CYL/AXIS</label>
+                                    <div style="display:flex;gap:4px;"><input name="uzoq_chap_sph" class="form-control" value="{{ exam.uzoq_chap_sph }}" placeholder="SPH"><input name="uzoq_chap_cyl" class="form-control" value="{{ exam.uzoq_chap_cyl }}" placeholder="CYL"><input name="uzoq_chap_axis" class="form-control" value="{{ exam.uzoq_chap_axis }}" placeholder="AXIS"></div>
+                                </div>
+                                <div class="inline-edit-group"><label>Yaqin O'ng SPH/CYL/AXIS</label>
+                                    <div style="display:flex;gap:4px;"><input name="yaqin_ong_sph" class="form-control" value="{{ exam.yaqin_ong_sph }}" placeholder="SPH"><input name="yaqin_ong_cyl" class="form-control" value="{{ exam.yaqin_ong_cyl }}" placeholder="CYL"><input name="yaqin_ong_axis" class="form-control" value="{{ exam.yaqin_ong_axis }}" placeholder="AXIS"></div>
+                                </div>
+                                <div class="inline-edit-group"><label>Yaqin Chap SPH/CYL/AXIS</label>
+                                    <div style="display:flex;gap:4px;"><input name="yaqin_chap_sph" class="form-control" value="{{ exam.yaqin_chap_sph }}" placeholder="SPH"><input name="yaqin_chap_cyl" class="form-control" value="{{ exam.yaqin_chap_cyl }}" placeholder="CYL"><input name="yaqin_chap_axis" class="form-control" value="{{ exam.yaqin_chap_axis }}" placeholder="AXIS"></div>
+                                </div>
+                                <div class="inline-edit-group"><label>Linza O'ng / Chap</label><div style="display:flex;gap:4px;"><input name="linza_ong" class="form-control" value="{{ exam.linza_ong }}" placeholder="O'ng"><input name="linza_chap" class="form-control" value="{{ exam.linza_chap }}" placeholder="Chap"></div></div>
+                                <div class="inline-edit-group"><label>Diametr O'ng / Chap</label><div style="display:flex;gap:4px;"><input name="diametr_ong" class="form-control" value="{{ exam.diametr_ong }}" placeholder="O'ng"><input name="diametr_chap" class="form-control" value="{{ exam.diametr_chap }}" placeholder="Chap"></div></div>
+                                <div class="inline-edit-group"><label>Radius O'ng / Chap</label><div style="display:flex;gap:4px;"><input name="radius_ong" class="form-control" value="{{ exam.radius_ong }}" placeholder="O'ng"><input name="radius_chap" class="form-control" value="{{ exam.radius_chap }}" placeholder="Chap"></div></div>
+                                <div class="inline-edit-group"><label>Dioptriya O'ng / Chap</label><div style="display:flex;gap:4px;"><input name="dioptriya_ong" class="form-control" value="{{ exam.dioptriya_ong }}" placeholder="O'ng"><input name="dioptriya_chap" class="form-control" value="{{ exam.dioptriya_chap }}" placeholder="Chap"></div></div>
+                            </div>
+                            <div class="inline-section-title">Tashxis</div>
+                            <div class="inline-card-grid">
+                                <div class="inline-edit-group"><label>ICD kodi</label><input name="icd_kodi" class="form-control" value="{{ exam.icd_kodi }}"></div>
+                                <div class="inline-edit-group"><label>ICD nomi</label><input name="icd_nomi" class="form-control" value="{{ exam.icd_nomi }}"></div>
+                                <div class="inline-edit-group"><label>Tashxis turi</label><input name="tashxis_turi" class="form-control" value="{{ exam.tashxis_turi }}"></div>
+                                <div class="inline-edit-group"><label>Yo'nalish</label><input name="yonalish" class="form-control" value="{{ exam.yonalish }}"></div>
+                            </div>
+                            <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="switchToExamView({{ exam.pk }})">Bekor</button>
+                                <button type="submit" class="btn btn-primary btn-sm">Saqlash</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            {% for disc in discharge_forms %}
+            <div class="form-history-card" style="cursor:pointer;" onclick="openDocOverlay('discOverlay{{ disc.pk }}')">
+                <div class="form-history-header">
+                    <div>
+                        <span class="form-type-badge discharge">Vipiska</span>
+                        <span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ disc.protocol_number }} &middot; {{ disc.created_at|date:"d.m.Y" }}</span>
+                    </div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </div>
+            </div>
+            <!-- A4 Overlay: Vipiska -->
+            <div class="form-overlay" id="discOverlay{{ disc.pk }}" onclick="if(event.target===this)closeDocOverlay('discOverlay{{ disc.pk }}')">
+                <div style="background:var(--white);border-radius:12px;padding:20px;width:100%;max-width:780px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+                        <div>
+                            <span class="form-type-badge discharge">Vipiska</span>
+                            <span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ disc.protocol_number }} &middot; {{ disc.created_at|date:"d.m.Y" }} &middot; {% if disc.doctor %}Dr. {{ disc.doctor.full_name }}{% else %}—{% endif %}</span>
+                        </div>
+                        <div style="display:flex;gap:8px;">
+                            <button class="btn btn-secondary btn-sm" onclick="closeDocOverlay('discOverlay{{ disc.pk }}')">✕ Yopish</button>
+                        </div>
+                    </div>
+                    <!-- VIEW MODE -->
+                    <div id="discView{{ disc.pk }}" style="padding:4px 0;">
+                        <div class="inline-card-grid">
+                            <div class="inline-field"><span class="inline-lbl">Bemor</span><span>{{ patient.full_name }}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Shifokor</span><span>{% if disc.doctor %}Dr. {{ disc.doctor.full_name }}{% else %}—{% endif %}</span></div>
+                            <div class="inline-field"><span class="inline-lbl">Protokol №</span><span>{{ disc.protocol_number }}</span></div>
+                        </div>
+                        {% if disc.shikoyat_tarix %}<div class="inline-field-full"><span class="inline-lbl">Shikoyat / Tarix</span><span>{{ disc.shikoyat_tarix }}</span></div>{% endif %}
+                        {% if disc.shaxsiy_oilaviy_tarix %}<div class="inline-field-full"><span class="inline-lbl">Shaxsiy/Oilaviy tarix</span><span>{{ disc.shaxsiy_oilaviy_tarix }}</span></div>{% endif %}
+                        {% if disc.tizimli_anamnez %}<div class="inline-field-full"><span class="inline-lbl">Tizimli anamnez</span><span>{{ disc.tizimli_anamnez }}</span></div>{% endif %}
+                        {% if disc.koz_anamezi %}<div class="inline-field-full"><span class="inline-lbl">Ko'z anamezi</span><span>{{ disc.koz_anamezi }}</span></div>{% endif %}
+                        {% if disc.tashxis_kodi_nomi %}<div class="inline-field-full"><span class="inline-lbl">Tashxis kodi–nomi</span><span>{{ disc.tashxis_kodi_nomi }}</span></div>{% endif %}
+                        {% if disc.operatsiya_kodi_nomi %}<div class="inline-field-full"><span class="inline-lbl">Operatsiya kodi–nomi</span><span>{{ disc.operatsiya_kodi_nomi }}</span></div>{% endif %}
+                        <div class="inline-section-title">Ko'rik natijalari</div>
+                        <div class="inline-table-wrap">
+                            <table class="inline-table"><thead><tr><th></th><th>O'NG</th><th>CHAP</th></tr></thead><tbody>
+                            <tr><td class="l">Old segment</td><td>{{ disc.old_segment_ong|default:"—" }}</td><td>{{ disc.old_segment_chap|default:"—" }}</td></tr>
+                            <tr><td class="l">Fundus</td><td>{{ disc.fundus_ong|default:"—" }}</td><td>{{ disc.fundus_chap|default:"—" }}</td></tr>
+                            <tr><td class="l">Preop</td><td>{{ disc.preop_ong|default:"—" }}</td><td>{{ disc.preop_chap|default:"—" }}</td></tr>
+                            <tr><td class="l">Postop</td><td>{{ disc.postop_ong|default:"—" }}</td><td>{{ disc.postop_chap|default:"—" }}</td></tr>
+                            <tr><td class="l">Ko'z bosimi</td><td>{{ disc.koz_bosimi_ong|default:"—" }}</td><td>{{ disc.koz_bosimi_chap|default:"—" }}</td></tr>
+                            <tr><td class="l">Daraja</td><td>{{ disc.daraja_ong|default:"—" }}</td><td>{{ disc.daraja_chap|default:"—" }}</td></tr>
+                            <tr><td class="l">Qovoq</td><td>{{ disc.qovoq_ong|default:"—" }}</td><td>{{ disc.qovoq_chap|default:"—" }}</td></tr>
+                            <tr><td class="l">Glob H./Covert</td><td>{{ disc.glob_ong|default:"—" }}</td><td>{{ disc.glob_chap|default:"—" }}</td></tr>
+                            </tbody></table>
+                        </div>
+                        {% if disc.muhim_tekshiruv %}<div class="inline-field-full"><span class="inline-lbl">Muhim tekshiruv natijalari</span><span>{{ disc.muhim_tekshiruv }}</span></div>{% endif %}
+                        {% if disc.anesteziya_turi %}<div class="inline-field"><span class="inline-lbl">Anesteziya turi</span><span>{{ disc.anesteziya_turi }}</span></div>{% endif %}
+                        {% if disc.operatsiya_izohlar %}<div class="inline-field-full"><span class="inline-lbl">Operatsiya izohlari</span><span>{{ disc.operatsiya_izohlar }}</span></div>{% endif %}
+                        {% if disc.chiqish_holati %}<div class="inline-field-full"><span class="inline-lbl">Chiqish holati</span><span>{{ disc.chiqish_holati }}</span></div>{% endif %}
+                        {% if disc.davolash %}<div class="inline-field-full"><span class="inline-lbl">Davolash</span><span>{{ disc.davolash }}</span></div>{% endif %}
+                        {% if disc.anesteziya_izohi %}<div class="inline-field-full"><span class="inline-lbl">Anesteziya izohi</span><span>{{ disc.anesteziya_izohi }}</span></div>{% endif %}
+                        {% if disc.ishlatilgan_linzalar %}<div class="inline-field-full"><span class="inline-lbl">Ishlatilgan linzalar</span><span>{{ disc.ishlatilgan_linzalar }}</span></div>{% endif %}
+                    </div>
+                    <!-- EDIT MODE -->
+                    <div id="discEdit{{ disc.pk }}" style="display:none;padding:4px 0;">
+                        <form method="post" action="{% url 'doctor_edit_discharge' doctor.pk disc.pk %}">
+                            {% csrf_token %}
+                            <div class="inline-card-grid">
+                            </div>
+                            <div class="inline-edit-group"><label>Shikoyat / Tarix</label><textarea name="shikoyat_tarix" class="form-control" rows="2">{{ disc.shikoyat_tarix }}</textarea></div>
+                            <div class="inline-edit-group"><label>Shaxsiy/Oilaviy tarix</label><textarea name="shaxsiy_oilaviy_tarix" class="form-control" rows="2">{{ disc.shaxsiy_oilaviy_tarix }}</textarea></div>
+                            <div class="inline-edit-group"><label>Tizimli anamnez</label><textarea name="tizimli_anamnez" class="form-control" rows="2">{{ disc.tizimli_anamnez }}</textarea></div>
+                            <div class="inline-edit-group"><label>Ko'z anamezi</label><textarea name="koz_anamezi" class="form-control" rows="2">{{ disc.koz_anamezi }}</textarea></div>
+                            <div class="inline-edit-group"><label>Tashxis kodi–nomi</label><textarea name="tashxis_kodi_nomi" class="form-control" rows="2">{{ disc.tashxis_kodi_nomi }}</textarea></div>
+                            <div class="inline-edit-group"><label>Operatsiya kodi–nomi</label><textarea name="operatsiya_kodi_nomi" class="form-control" rows="2">{{ disc.operatsiya_kodi_nomi }}</textarea></div>
+                            <div class="inline-section-title">Ko'rik natijalari</div>
+                            <div class="inline-card-grid">
+                                <div class="inline-edit-group"><label>Old segment O'ng</label><input name="old_segment_ong" class="form-control" value="{{ disc.old_segment_ong }}"></div>
+                                <div class="inline-edit-group"><label>Old segment Chap</label><input name="old_segment_chap" class="form-control" value="{{ disc.old_segment_chap }}"></div>
+                                <div class="inline-edit-group"><label>Fundus O'ng</label><input name="fundus_ong" class="form-control" value="{{ disc.fundus_ong }}"></div>
+                                <div class="inline-edit-group"><label>Fundus Chap</label><input name="fundus_chap" class="form-control" value="{{ disc.fundus_chap }}"></div>
+                                <div class="inline-edit-group"><label>Preop O'ng</label><input name="preop_ong" class="form-control" value="{{ disc.preop_ong }}"></div>
+                                <div class="inline-edit-group"><label>Preop Chap</label><input name="preop_chap" class="form-control" value="{{ disc.preop_chap }}"></div>
+                                <div class="inline-edit-group"><label>Postop O'ng</label><input name="postop_ong" class="form-control" value="{{ disc.postop_ong }}"></div>
+                                <div class="inline-edit-group"><label>Postop Chap</label><input name="postop_chap" class="form-control" value="{{ disc.postop_chap }}"></div>
+                                <div class="inline-edit-group"><label>Ko'z bosimi O'ng</label><input name="koz_bosimi_ong" class="form-control" value="{{ disc.koz_bosimi_ong }}"></div>
+                                <div class="inline-edit-group"><label>Ko'z bosimi Chap</label><input name="koz_bosimi_chap" class="form-control" value="{{ disc.koz_bosimi_chap }}"></div>
+                                <div class="inline-edit-group"><label>Daraja O'ng</label><input name="daraja_ong" class="form-control" value="{{ disc.daraja_ong }}"></div>
+                                <div class="inline-edit-group"><label>Daraja Chap</label><input name="daraja_chap" class="form-control" value="{{ disc.daraja_chap }}"></div>
+                                <div class="inline-edit-group"><label>Qovoq O'ng</label><input name="qovoq_ong" class="form-control" value="{{ disc.qovoq_ong }}"></div>
+                                <div class="inline-edit-group"><label>Qovoq Chap</label><input name="qovoq_chap" class="form-control" value="{{ disc.qovoq_chap }}"></div>
+                                <div class="inline-edit-group"><label>Glob O'ng</label><input name="glob_ong" class="form-control" value="{{ disc.glob_ong }}"></div>
+                                <div class="inline-edit-group"><label>Glob Chap</label><input name="glob_chap" class="form-control" value="{{ disc.glob_chap }}"></div>
+                            </div>
+                            <div class="inline-edit-group"><label>Muhim tekshiruv natijalari</label><textarea name="muhim_tekshiruv" class="form-control" rows="2">{{ disc.muhim_tekshiruv }}</textarea></div>
+                            <div class="inline-edit-group"><label>Anesteziya turi</label><input name="anesteziya_turi" class="form-control" value="{{ disc.anesteziya_turi }}"></div>
+                            <div class="inline-edit-group"><label>Operatsiya izohlari</label><textarea name="operatsiya_izohlar" class="form-control" rows="2">{{ disc.operatsiya_izohlar }}</textarea></div>
+                            <div class="inline-edit-group"><label>Chiqish holati</label><input name="chiqish_holati" class="form-control" value="{{ disc.chiqish_holati }}"></div>
+                            <div class="inline-edit-group"><label>Davolash</label><textarea name="davolash" class="form-control" rows="2">{{ disc.davolash }}</textarea></div>
+                            <div class="inline-edit-group"><label>Anesteziya izohi</label><textarea name="anesteziya_izohi" class="form-control" rows="2">{{ disc.anesteziya_izohi }}</textarea></div>
+                            <div class="inline-edit-group"><label>Ishlatilgan linzalar</label><textarea name="ishlatilgan_linzalar" class="form-control" rows="2">{{ disc.ishlatilgan_linzalar }}</textarea></div>
+                            <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+                                <button type="button" class="btn btn-secondary btn-sm" onclick="switchToDiscView({{ disc.pk }})">Bekor</button>
+                                <button type="submit" class="btn btn-primary btn-sm">Saqlash</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- LASIK forms -->
+            {% for lf in lasik_forms %}
+            <div class="form-history-card" style="cursor:pointer;" onclick="openDocOverlay('lasikOverlay{{ lf.pk }}')">
+                <div class="form-history-header">
+                    <div><span class="form-type-badge" style="background:#7c3aed1a;color:#7c3aed;">LASIK</span><span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ lf.protocol_number|default:"—" }} &middot; {{ lf.created_at|date:"d.m.Y" }}</span></div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </div>
+            </div>
+            <div class="form-overlay" id="lasikOverlay{{ lf.pk }}" onclick="if(event.target===this)closeDocOverlay('lasikOverlay{{ lf.pk }}')">
+                <div style="background:var(--white);border-radius:12px;padding:24px;width:100%;max-width:780px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+                        <div><span class="form-type-badge" style="background:#7c3aed1a;color:#7c3aed;">LASIK</span><span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ lf.protocol_number|default:"—" }} &middot; {{ lf.created_at|date:"d.m.Y" }}</span></div>
+                        <button class="btn btn-secondary btn-sm" onclick="closeDocOverlay('lasikOverlay{{ lf.pk }}')">✕ Yopish</button>
+                    </div>
+                    <div style="font-size:13px;line-height:1.8;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-bottom:12px;">
+                            <div><strong>Bemor:</strong> {{ patient.full_name }}</div>
+                            <div><strong>Protokol №:</strong> {{ lf.protocol_number|default:"—" }}</div>
+                            <div><strong>Shifokor:</strong> {% if lf.doctor %}Dr. {{ lf.doctor.full_name }}{% else %}—{% endif %}</div>
+                            <div><strong>Sana:</strong> {{ lf.operatsiya_sanasi|date:"d.m.Y"|default:"—" }}</div>
+                            <div><strong>Operatsiya turi:</strong> {{ lf.operatsiya_turi|default:"—" }}</div>
+                            <div><strong>Ko'z:</strong> {{ lf.ko_z|default:"—" }}</div>
+                            <div><strong>Hirurg:</strong> {{ lf.oper_hirurg|default:"—" }}</div>
+                            <div><strong>Assistent:</strong> {{ lf.assistent|default:"—" }}</div>
+                        </div>
+                        {% if lf.tashxis %}<div><strong>Tashxis:</strong> {{ lf.tashxis }}</div>{% endif %}
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;margin:10px 0;"><thead style="background:#f5f5f5;"><tr><th style="padding:4px 8px;text-align:left;border:1px solid #ddd;"></th><th style="padding:4px 8px;border:1px solid #ddd;">OD</th><th style="padding:4px 8px;border:1px solid #ddd;">OS</th></tr></thead><tbody>
+                        <tr><td style="padding:4px 8px;border:1px solid #ddd;">ВГД</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.vgd_od|default:"—" }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.vgd_os|default:"—" }}</td></tr>
+                        <tr><td style="padding:4px 8px;border:1px solid #ddd;">Preop Vis</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.preop_vis_od|default:"—" }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.preop_vis_os|default:"—" }}</td></tr>
+                        <tr><td style="padding:4px 8px;border:1px solid #ddd;">Preop Sph</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.preop_sph_od|default:"—" }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.preop_sph_os|default:"—" }}</td></tr>
+                        <tr><td style="padding:4px 8px;border:1px solid #ddd;">Preop Cyl</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.preop_cyl_od|default:"—" }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.preop_cyl_os|default:"—" }}</td></tr>
+                        <tr><td style="padding:4px 8px;border:1px solid #ddd;">Preop Axis</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.preop_axis_od|default:"—" }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.preop_axis_os|default:"—" }}</td></tr>
+                        <tr><td style="padding:4px 8px;border:1px solid #ddd;">Postop Vis</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.postop_vis_od|default:"—" }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ lf.postop_vis_os|default:"—" }}</td></tr>
+                        </tbody></table>
+                        {% if lf.holat %}<div><strong>Holat:</strong> {{ lf.holat }}</div>{% endif %}
+                        {% if lf.tavsiya %}<div style="margin-top:8px;"><strong>Tavsiya:</strong><br>{{ lf.tavsiya|linebreaksbr }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Strabismus forms -->
+            {% for sf in strabismus_forms %}
+            <div class="form-history-card" style="cursor:pointer;" onclick="openDocOverlay('strabismusOverlay{{ sf.pk }}')">
+                <div class="form-history-header">
+                    <div><span class="form-type-badge" style="background:#d971001a;color:#d97100;">Ko'squlilik</span><span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ sf.protocol_number|default:"—" }} &middot; {{ sf.created_at|date:"d.m.Y" }}</span></div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </div>
+            </div>
+            <div class="form-overlay" id="strabismusOverlay{{ sf.pk }}" onclick="if(event.target===this)closeDocOverlay('strabismusOverlay{{ sf.pk }}')">
+                <div style="background:var(--white);border-radius:12px;padding:24px;width:100%;max-width:780px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+                        <div><span class="form-type-badge" style="background:#d971001a;color:#d97100;">Ko'squlilik</span><span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ sf.protocol_number|default:"—" }} &middot; {{ sf.created_at|date:"d.m.Y" }}</span></div>
+                        <button class="btn btn-secondary btn-sm" onclick="closeDocOverlay('strabismusOverlay{{ sf.pk }}')">✕ Yopish</button>
+                    </div>
+                    <div style="font-size:13px;line-height:1.8;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-bottom:12px;">
+                            <div><strong>Bemor:</strong> {{ patient.full_name }}</div>
+                            <div><strong>Protokol №:</strong> {{ sf.protocol_number|default:"—" }}</div>
+                            <div><strong>Shifokor:</strong> {% if sf.doctor %}Dr. {{ sf.doctor.full_name }}{% else %}—{% endif %}</div>
+                            <div><strong>VIS:</strong> {{ sf.vis|default:"—" }}</div>
+                            <div><strong>Dev darajasi:</strong> {{ sf.dev_darajasi|default:"—" }}</div>
+                        </div>
+                        {% if sf.shikoyat %}<div><strong>Shikoyat:</strong> {{ sf.shikoyat }}</div>{% endif %}
+                        {% if sf.tashxis %}<div><strong>Tashxis:</strong> {{ sf.tashxis }}</div>{% endif %}
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;margin:10px 0;"><thead style="background:#f5f5f5;"><tr><th style="padding:4px 8px;text-align:left;border:1px solid #ddd;">Operatsiya</th><th style="padding:4px 8px;border:1px solid #ddd;">Muskul</th><th style="padding:4px 8px;border:1px solid #ddd;">Ko'z</th><th style="padding:4px 8px;border:1px solid #ddd;">mm</th></tr></thead><tbody>
+                        {% if sf.recession_muscle %}<tr><td style="padding:4px 8px;border:1px solid #ddd;">Retsessiya</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ sf.recession_muscle }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ sf.recession_eye }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ sf.recession_mm }}</td></tr>{% endif %}
+                        {% if sf.resection_muscle %}<tr><td style="padding:4px 8px;border:1px solid #ddd;">Rezeksiya</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ sf.resection_muscle }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ sf.resection_eye }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ sf.resection_mm }}</td></tr>{% endif %}
+                        {% if sf.transposition_eye %}<tr><td style="padding:4px 8px;border:1px solid #ddd;">Transpozitsiya</td><td style="padding:4px 8px;border:1px solid #ddd;">—</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ sf.transposition_eye }}</td><td style="padding:4px 8px;border:1px solid #ddd;">—</td></tr>{% endif %}
+                        </tbody></table>
+                        {% if sf.postop_dev %}<div><strong>Postop deviyatsiya:</strong> {{ sf.postop_dev }}°</div>{% endif %}
+                        {% if sf.tavsiya %}<div style="margin-top:8px;"><strong>Tavsiya:</strong><br>{{ sf.tavsiya|linebreaksbr }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- PostOp forms -->
+            {% for pf in postop_forms %}
+            <div class="form-history-card" style="cursor:pointer;" onclick="openDocOverlay('postopOverlay{{ pf.pk }}')">
+                <div class="form-history-header">
+                    <div><span class="form-type-badge" style="background:#0891b21a;color:#0891b2;">Oper. ko'chirma</span><span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ pf.protocol_number|default:"—" }} &middot; {{ pf.created_at|date:"d.m.Y" }}</span></div>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </div>
+            </div>
+            <div class="form-overlay" id="postopOverlay{{ pf.pk }}" onclick="if(event.target===this)closeDocOverlay('postopOverlay{{ pf.pk }}')">
+                <div style="background:var(--white);border-radius:12px;padding:24px;width:100%;max-width:780px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">
+                        <div><span class="form-type-badge" style="background:#0891b21a;color:#0891b2;">Operatsionnaya ko'chirma</span><span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ pf.protocol_number|default:"—" }} &middot; {{ pf.created_at|date:"d.m.Y" }}</span></div>
+                        <button class="btn btn-secondary btn-sm" onclick="closeDocOverlay('postopOverlay{{ pf.pk }}')">✕ Yopish</button>
+                    </div>
+                    <div style="font-size:13px;line-height:1.8;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;margin-bottom:12px;">
+                            <div><strong>Bemor:</strong> {{ patient.full_name }}</div>
+                            <div><strong>Protokol №:</strong> {{ pf.protocol_number|default:"—" }}</div>
+                            <div><strong>Shifokor:</strong> {% if pf.doctor %}Dr. {{ pf.doctor.full_name }}{% else %}—{% endif %}</div>
+                            <div><strong>Sana:</strong> {{ pf.davolash_boshlanishi|date:"d.m.Y"|default:"—" }} — {{ pf.davolash_tugashi|date:"d.m.Y"|default:"—" }}</div>
+                            <div><strong>Narkoz:</strong> {{ pf.narkoz_turi|default:"—" }}</div>
+                            <div><strong>Hirurg:</strong> {{ pf.hirurg|default:"—" }}</div>
+                        </div>
+                        {% if pf.asosiy_tashxis %}<div><strong>Asosiy tashxis:</strong> {{ pf.asosiy_tashxis }}</div>{% endif %}
+                        {% if pf.qoshimcha_tashxis %}<div><strong>Qo'shimcha tashxis:</strong> {{ pf.qoshimcha_tashxis }}</div>{% endif %}
+                        {% if pf.hamroh_kasallik %}<div><strong>Hamroh kasallik:</strong> {{ pf.hamroh_kasallik }}</div>{% endif %}
+                        <table style="width:100%;border-collapse:collapse;font-size:12px;margin:10px 0;"><thead style="background:#f5f5f5;"><tr><th style="padding:4px 8px;text-align:left;border:1px solid #ddd;"></th><th style="padding:4px 8px;border:1px solid #ddd;">OD</th><th style="padding:4px 8px;border:1px solid #ddd;">OS</th></tr></thead><tbody>
+                        <tr><td style="padding:4px 8px;border:1px solid #ddd;">Vis (qabulda)</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ pf.qabulda_vis_od|default:"—" }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ pf.qabulda_vis_os|default:"—" }}</td></tr>
+                        <tr><td style="padding:4px 8px;border:1px solid #ddd;">Holat (qabulda)</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ pf.qabulda_od|default:"—" }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ pf.qabulda_os|default:"—" }}</td></tr>
+                        <tr><td style="padding:4px 8px;border:1px solid #ddd;">Vis (chiqimda)</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ pf.chiqimda_vis_od|default:"—" }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ pf.chiqimda_vis_os|default:"—" }}</td></tr>
+                        <tr><td style="padding:4px 8px;border:1px solid #ddd;">Holat (chiqimda)</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ pf.chiqimda_od|default:"—" }}</td><td style="padding:4px 8px;border:1px solid #ddd;">{{ pf.chiqimda_os|default:"—" }}</td></tr>
+                        </tbody></table>
+                        {% if pf.operatsiya %}<div><strong>Operatsiya:</strong> {{ pf.operatsiya }}</div>{% endif %}
+                        {% if pf.tavsiya %}<div style="margin-top:8px;"><strong>Tavsiya:</strong><br>{{ pf.tavsiya|linebreaksbr }}</div>{% endif %}
+                        {% if pf.keyingi_qayta_korish %}<div><strong>Keyingi ko'rish:</strong> {{ pf.keyingi_qayta_korish }}</div>{% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- RIGHT: REF/KRT/IOP/VA + PROCEDURES -->
+    <div>
+        {% if active_visit %}
+        <!-- REF/KRT/IOP/VA ADD SECTION -->
+        <div class="card animate-in" style="margin-bottom:16px;">
+            <div class="card-header">
+                <h3>Ma'lumotlar</h3>
+                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+                    <button class="btn btn-secondary btn-sm" onclick="openModal('addRefModal')">+ REF</button>
+                    <button class="btn btn-secondary btn-sm" onclick="openModal('addKrtModal')">+ KRT</button>
+                    <button class="btn btn-secondary btn-sm" onclick="openModal('addIopModal')">+ IOP</button>
+                    <button class="btn btn-secondary btn-sm" onclick="openModal('addVaModal')">+ Korreksiya</button>
+                    <button class="btn btn-secondary btn-sm" type="button" onclick="addFileInput()">+ Fayl</button>
+                </div>
+            </div>
+
+            <!-- Show existing Visual Acuity records -->
+            {% for va in active_visit.visual_acuities.all %}
+            <div class="compact-data">
+                <strong>KORREKSIYA</strong> <span style="font-size:9px;color:var(--text-muted);">{{ va.created_at|date:"d.m.Y" }}</span>
+                <div class="data-actions">
+                    <button onclick="openEditVa({{ va.pk }}, '{{ va.uzoq_od_sph|default:"" }}','{{ va.uzoq_od_cyl|default:"" }}','{{ va.uzoq_od_ax|default:"" }}','{{ va.uzoq_od_vis|default:"" }}','{{ va.uzoq_os_sph|default:"" }}','{{ va.uzoq_os_cyl|default:"" }}','{{ va.uzoq_os_ax|default:"" }}','{{ va.uzoq_os_vis|default:"" }}','{{ va.yaqin_od_sph|default:"" }}','{{ va.yaqin_od_cyl|default:"" }}','{{ va.yaqin_od_ax|default:"" }}','{{ va.yaqin_od_vis|default:"" }}','{{ va.yaqin_os_sph|default:"" }}','{{ va.yaqin_os_cyl|default:"" }}','{{ va.yaqin_os_ax|default:"" }}','{{ va.yaqin_os_vis|default:"" }}','{{ va.mkl_od_sph|default:"" }}','{{ va.mkl_od_cyl|default:"" }}','{{ va.mkl_od_ax|default:"" }}','{{ va.mkl_od_vis|default:"" }}','{{ va.mkl_os_sph|default:"" }}','{{ va.mkl_os_cyl|default:"" }}','{{ va.mkl_os_ax|default:"" }}','{{ va.mkl_os_vis|default:"" }}')">Tahrirlash</button>
+                    <form method="post" action="{% url 'doctor_delete_visual_acuity' doctor.pk va.pk %}" style="display:inline;" onsubmit="return confirm('O\'chirish?')">{% csrf_token %}<button type="submit" style="color:var(--danger);">O'chirish</button></form>
+                </div>
+                {% if va.uzoq_od_sph or va.uzoq_os_sph or va.uzoq_od_vis or va.uzoq_os_vis %}
+                <div class="va-section-title">Uzoq (Vdal')</div>
+                <table><tr><td style="width:25px;font-weight:700;">OD:</td><td>SPH={{ va.uzoq_od_sph|default:"—" }}</td><td>CYL={{ va.uzoq_od_cyl|default:"—" }}</td><td>AX={{ va.uzoq_od_ax|default:"—" }}</td><td>VIS={{ va.uzoq_od_vis|default:"—" }}</td></tr>
+                <tr><td style="font-weight:700;">OS:</td><td>SPH={{ va.uzoq_os_sph|default:"—" }}</td><td>CYL={{ va.uzoq_os_cyl|default:"—" }}</td><td>AX={{ va.uzoq_os_ax|default:"—" }}</td><td>VIS={{ va.uzoq_os_vis|default:"—" }}</td></tr></table>
+                {% endif %}
+                {% if va.yaqin_od_sph or va.yaqin_os_sph or va.yaqin_od_vis or va.yaqin_os_vis %}
+                <div class="va-section-title">Yaqin (Vblizi)</div>
+                <table><tr><td style="width:25px;font-weight:700;">OD:</td><td>SPH={{ va.yaqin_od_sph|default:"—" }}</td><td>CYL={{ va.yaqin_od_cyl|default:"—" }}</td><td>AX={{ va.yaqin_od_ax|default:"—" }}</td><td>VIS={{ va.yaqin_od_vis|default:"—" }}</td></tr>
+                <tr><td style="font-weight:700;">OS:</td><td>SPH={{ va.yaqin_os_sph|default:"—" }}</td><td>CYL={{ va.yaqin_os_cyl|default:"—" }}</td><td>AX={{ va.yaqin_os_ax|default:"—" }}</td><td>VIS={{ va.yaqin_os_vis|default:"—" }}</td></tr></table>
+                {% endif %}
+                {% if va.mkl_od_sph or va.mkl_os_sph or va.mkl_od_vis or va.mkl_os_vis %}
+                <div class="va-section-title">MKL</div>
+                <table><tr><td style="width:25px;font-weight:700;">OD:</td><td>SPH={{ va.mkl_od_sph|default:"—" }}</td><td>CYL={{ va.mkl_od_cyl|default:"—" }}</td><td>AX={{ va.mkl_od_ax|default:"—" }}</td><td>VIS={{ va.mkl_od_vis|default:"—" }}</td></tr>
+                <tr><td style="font-weight:700;">OS:</td><td>SPH={{ va.mkl_os_sph|default:"—" }}</td><td>CYL={{ va.mkl_os_cyl|default:"—" }}</td><td>AX={{ va.mkl_os_ax|default:"—" }}</td><td>VIS={{ va.mkl_os_vis|default:"—" }}</td></tr></table>
+                {% endif %}
+            </div>
+            {% endfor %}
+
+            <!-- Show existing REF records -->
+            {% for ref in active_visit.refractions.all %}
+            <div class="compact-data">
+                <strong>REF</strong>
+                <div class="data-actions">
+                    <button onclick="openEditRef({{ ref.pk }}, '{{ ref.od_s|default:"" }}', '{{ ref.od_c|default:"" }}', '{{ ref.od_a|default:"" }}', '{{ ref.os_s|default:"" }}', '{{ ref.os_c|default:"" }}', '{{ ref.os_a|default:"" }}')">Tahrirlash</button>
+                </div>
+                <table><tr><td style="width:25px;font-weight:700;">OD:</td><td>S={{ ref.od_s|default:"—" }}</td><td>C={{ ref.od_c|default:"—" }}</td><td>A={{ ref.od_a|default:"—" }}</td></tr><tr><td style="font-weight:700;">OS:</td><td>S={{ ref.os_s|default:"—" }}</td><td>C={{ ref.os_c|default:"—" }}</td><td>A={{ ref.os_a|default:"—" }}</td></tr></table>
+            </div>
+            {% endfor %}
+
+            <!-- Show existing KRT records -->
+            {% for krt in active_visit.krts.all %}
+            <div class="compact-data">
+                <strong>KRT</strong>
+                <div class="data-actions">
+                    <button onclick="openEditKrt({{ krt.pk }}, '{{ krt.od_d|default:"" }}', '{{ krt.od_mm|default:"" }}', '{{ krt.od_a|default:"" }}', '{{ krt.os_d|default:"" }}', '{{ krt.os_mm|default:"" }}', '{{ krt.os_a|default:"" }}')">Tahrirlash</button>
+                </div>
+                <table><tr><td style="width:25px;font-weight:700;">OD:</td><td>D={{ krt.od_d|default:"—" }}</td><td>MM={{ krt.od_mm|default:"—" }}</td><td>A={{ krt.od_a|default:"—" }}</td></tr><tr><td style="font-weight:700;">OS:</td><td>D={{ krt.os_d|default:"—" }}</td><td>MM={{ krt.os_mm|default:"—" }}</td><td>A={{ krt.os_a|default:"—" }}</td></tr></table>
+            </div>
+            {% endfor %}
+
+            <!-- Show existing IOP records -->
+            {% for iop in active_visit.iops.all %}
+            <div class="compact-data">
+                <strong>IOP</strong>
+                <div class="data-actions">
+                    <button onclick="openEditIop({{ iop.pk }}, '{{ iop.od_value|default:"" }}', '{{ iop.os_value|default:"" }}')">Tahrirlash</button>
+                </div>
+                <table><tr><td style="width:25px;font-weight:700;">OD:</td><td>{{ iop.od_value|default:"—" }}</td></tr><tr><td style="font-weight:700;">OS:</td><td>{{ iop.os_value|default:"—" }}</td></tr></table>
+            </div>
+            {% endfor %}
+
+            {% if not active_visit.refractions.all and not active_visit.krts.all and not active_visit.iops.all and not active_visit.visual_acuities.all %}
+            <div class="empty-state" style="padding:20px;"><p>Hali ma'lumot qo'shilmagan</p></div>
+            {% endif %}
+
+            <!-- File attachments section -->
+            <div style="padding:8px 16px;border-top:1px solid var(--border);">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <strong style="font-size:12px;">Fayllar</strong>
+                </div>
+                <form method="post" action="{% url 'doctor_update_visit' doctor.pk active_visit.pk %}" enctype="multipart/form-data" id="fileUploadForm">
+                    {% csrf_token %}
+                    <div id="fileInputsContainer"></div>
+                    <div id="fileSubmitBtn" style="display:none;margin-top:6px;">
+                        <button type="submit" class="btn btn-primary btn-sm" style="width:100%;">Yuklash</button>
+                    </div>
+                </form>
+                {% if active_visit.attachment %}
+                <div style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;">
+                    <a href="{{ active_visit.attachment.url }}" target="_blank" style="font-size:12px;color:var(--accent);">Avvalgi biriktirma</a>
+                </div>
+                {% endif %}
+                {% for att in active_visit.visit_attachments.all %}
+                <div style="display:inline-flex;align-items:center;gap:4px;margin-top:4px;margin-right:8px;">
+                    <a href="{{ att.file.url }}" target="_blank" style="font-size:12px;color:var(--accent);">{{ att.file.name|truncatewords:3 }}</a>
+                    <form method="post" action="{% url 'doctor_delete_attachment' doctor.pk att.pk %}" style="display:inline;" onsubmit="return confirm('Faylni o\'chirish?')">
+                        {% csrf_token %}
+                        <button type="submit" style="background:none;border:none;cursor:pointer;padding:0;color:var(--danger);font-size:14px;" title="O'chirish">&times;</button>
+                    </form>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Protseduralar -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h3>Protseduralar</h3>
+                {% if active_visit %}
+                <button class="btn btn-secondary btn-sm" onclick="openProcedureModal()">+ Qo'shish</button>
+                {% endif %}
+            </div>
+
+            {% for proc in all_procedures %}
+            <div class="procedure-card">
+                <div style="display:flex;justify-content:space-between;align-items:start;">
+                    <div>
+                        <div style="font-weight:600;font-size:14px;margin-bottom:4px;">{{ proc.description|truncatewords:20 }}</div>
+                        <div style="font-size:12px;color:var(--text-muted);">
+                            {{ proc.progress_text }} bajarildi
+                            {% if proc.price_per_session %} &middot; {{ proc.price_per_session|format_som }} so'm/seans &middot; Jami: {{ proc.total_price|format_som }} so'm{% endif %}
+                            {% if proc.is_complete %}<span class="badge badge-success" style="margin-left:6px;">Tugallangan</span>{% endif %}
+                        </div>
+                    </div>
+                    {% if active_visit %}
+                    <button class="btn btn-secondary btn-sm" onclick="openEditProcedureModal({{ proc.pk }}, '{{ proc.description|escapejs }}', {{ proc.total_repetitions }}, {{ proc.price_per_session }})" style="flex-shrink:0;">Tahrirlash</button>
+                    {% endif %}
+                </div>
+                <div class="procedure-dates">
+                    {% for pd in proc.dates.all %}
+                    <div class="procedure-date {% if pd.completed %}completed{% endif %}">
+                        {{ pd.scheduled_date|date:"d.m.Y" }}
+                        {% if pd.completed %}
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+                        {% else %}
+                            <form method="post" action="{% url 'doctor_complete_procedure_date' doctor.pk pd.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button style="background:none;border:none;cursor:pointer;padding:0;" title="Bajarildi">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state" style="padding:30px;"><p>Protseduralar tayinlanmagan</p></div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- EDIT VISIT MODAL (blur background) — Task 17: updated fields -->
+<div class="edit-visit-backdrop" id="editVisitBackdrop" onclick="if(event.target===this)closeEditVisitModal()">
+    <div class="edit-visit-panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+            <h3>Tashrifni tahrirlash</h3>
+            <button onclick="closeEditVisitModal()" style="background:none;border:none;cursor:pointer;font-size:20px;color:var(--text-muted);">&times;</button>
+        </div>
+        <form method="post" id="editVisitForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group"><label>Anamnesis morbi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Анамнез заболевания)</span></label><textarea name="anamnesis_morbi" id="ev_anamnesis_morbi" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Operatsiyalar <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Операции)</span></label><textarea name="operatsiyalar" id="ev_operatsiyalar" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Tomizilgan <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Назначения)</span></label><textarea name="tomizilgan" id="ev_tomizilgan" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Ko'z oynak / Kontakt linza <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Очки/Контактные линзы)</span></label><textarea name="koz_oynak_kontakt_linza" id="ev_koz_oynak_kontakt_linza" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Anamnesis vitae <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Анамнез жизни)</span></label><textarea name="anamnesis_vitae" id="ev_anamnesis_vitae" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Allergiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Аллергия)</span></label><textarea name="allergiya" id="ev_allergiya" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Qovoqlar (ko'z yosh yo'llari) <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Веки/Слёзные пути)</span></label><textarea name="qovoqlar_koz_yosh_yollari" id="ev_qovoqlar" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Ko'z soqqasi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Глазница)</span></label><textarea name="koz_soqqasi" id="ev_koz_soqqasi" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Ko'z olmasi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Глазное яблоко)</span></label><textarea name="koz_olmasi" id="ev_koz_olmasi" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Sklera <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Склера)</span></label><textarea name="sklera" id="ev_sklera" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Shox parda <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Роговица)</span></label><textarea name="shox_parda" id="ev_shox_parda" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Old kamera <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Передняя камера)</span></label><textarea name="old_kamera" id="ev_old_kamera" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Rangdor parda (qorachiq) <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Радужка/Зрачок)</span></label><textarea name="rangdor_parda_qorachiq" id="ev_rangdor_parda" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Gavhar <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Хрусталик)</span></label><textarea name="gavhar" id="ev_gavhar" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Ko'rish o'tkirligi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Острота зрения)</span></label><textarea name="korish_otkirligi" id="ev_korish_otkirligi" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Shishasimon tana <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Стекловидное тело)</span></label><textarea name="shishasimon_tana" id="ev_shishasimon_tana" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Oftalmoskopiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Офтальмоскопия)</span></label><textarea name="oftalmoskopiya" id="ev_oftalmoskopiya" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Tashxis <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Диагноз)</span></label><textarea name="tashxis" id="ev_tashxis" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Tavsiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Рекомендации)</span></label><textarea name="tavsiya" id="ev_tavsiya" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Fayllar biriktirish</label><input type="file" name="attachments" class="form-control" multiple></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeEditVisitModal()">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% if active_visit %}
+<!-- TIBBIY YOZUV MODAL — Task 13: all 19 fields -->
+<div class="modal-backdrop" id="tibbiyYozuvModal">
+    <div class="modal" style="max-width:700px;max-height:90vh;overflow-y:auto;">
+        <h3>Tibbiy yozuv</h3>
+        <form method="post" action="{% url 'doctor_update_visit' doctor.pk active_visit.pk %}" id="tibbiyYozuvForm">
+            {% csrf_token %}
+            <div class="form-group"><label>Anamnesis morbi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Анамнез заболевания)</span></label><textarea name="anamnesis_morbi" class="form-control" rows="2">{{ active_visit.anamnesis_morbi }}</textarea></div>
+            <div class="form-group"><label>Operatsiyalar <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Операции)</span></label><textarea name="operatsiyalar" class="form-control" rows="2">{{ active_visit.operatsiyalar }}</textarea></div>
+            <div class="form-group"><label>Tomizilgan <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Назначения)</span></label><textarea name="tomizilgan" class="form-control" rows="2">{{ active_visit.tomizilgan }}</textarea></div>
+            <div class="form-group"><label>Ko'z oynak / Kontakt linza <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Очки/Контактные линзы)</span></label><textarea name="koz_oynak_kontakt_linza" class="form-control" rows="2">{{ active_visit.koz_oynak_kontakt_linza }}</textarea></div>
+            <div class="form-group"><label>Anamnesis vitae <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Анамнез жизни)</span></label><textarea name="anamnesis_vitae" class="form-control" rows="2">{{ active_visit.anamnesis_vitae }}</textarea></div>
+            <div class="form-group"><label>Allergiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Аллергия)</span></label><textarea name="allergiya" class="form-control" rows="2">{{ active_visit.allergiya }}</textarea></div>
+            <!-- Ko'z tekshiruvi — always visible OD/OS table (matches print layout) -->
+            <div style="font-weight:700;font-size:13px;margin:12px 0 6px;border-bottom:2px solid #333;padding-bottom:4px;">Ko'z tekshiruvi / Осмотр глаз</div>
+            <table style="width:100%;border-collapse:collapse;font-size:12px;margin-bottom:12px;">
+                <thead>
+                    <tr style="background:var(--bg);">
+                        <th style="padding:5px 8px;border:1px solid #ccc;text-align:left;width:34%;">Ko'rsatkich</th>
+                        <th style="padding:5px 8px;border:1px solid #ccc;text-align:center;width:33%;">OD <span style="font-weight:400;color:var(--text-muted);font-size:10px;">(O'ng / Правый)</span></th>
+                        <th style="padding:5px 8px;border:1px solid #ccc;text-align:center;width:33%;">OS <span style="font-weight:400;color:var(--text-muted);font-size:10px;">(Chap / Левый)</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Qovoqlar (ko'z yosh yo'llari) <span style="color:var(--text-muted);font-size:10px;">(Веки/Слёзные пути)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="qovoqlar_od" class="form-control" value="{{ active_visit.qovoqlar_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="qovoqlar_os" class="form-control" value="{{ active_visit.qovoqlar_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Ko'z soqqasi <span style="color:var(--text-muted);font-size:10px;">(Глазница)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="koz_soqqasi_od" class="form-control" value="{{ active_visit.koz_soqqasi_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="koz_soqqasi_os" class="form-control" value="{{ active_visit.koz_soqqasi_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Ko'z olmasi <span style="color:var(--text-muted);font-size:10px;">(Глазное яблоко)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="koz_olmasi_od" class="form-control" value="{{ active_visit.koz_olmasi_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="koz_olmasi_os" class="form-control" value="{{ active_visit.koz_olmasi_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Sklera <span style="color:var(--text-muted);font-size:10px;">(Склера)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="sklera_od" class="form-control" value="{{ active_visit.sklera_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="sklera_os" class="form-control" value="{{ active_visit.sklera_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Shox parda <span style="color:var(--text-muted);font-size:10px;">(Роговица)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="shox_parda_od" class="form-control" value="{{ active_visit.shox_parda_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="shox_parda_os" class="form-control" value="{{ active_visit.shox_parda_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Old kamera <span style="color:var(--text-muted);font-size:10px;">(Передняя камера)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="old_kamera_od" class="form-control" value="{{ active_visit.old_kamera_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="old_kamera_os" class="form-control" value="{{ active_visit.old_kamera_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Rangdor parda (qorachiq) <span style="color:var(--text-muted);font-size:10px;">(Радужка/Зрачок)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="rangdor_parda_od" class="form-control" value="{{ active_visit.rangdor_parda_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="rangdor_parda_os" class="form-control" value="{{ active_visit.rangdor_parda_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Gavhar <span style="color:var(--text-muted);font-size:10px;">(Хрусталик)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="gavhar_od" class="form-control" value="{{ active_visit.gavhar_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="gavhar_os" class="form-control" value="{{ active_visit.gavhar_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Ko'rish o'tkirligi <span style="color:var(--text-muted);font-size:10px;">(Острота зрения / Visus)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="korish_otkirligi_od" class="form-control" value="{{ active_visit.korish_otkirligi_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="korish_otkirligi_os" class="form-control" value="{{ active_visit.korish_otkirligi_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Korreksiya bilan <span style="color:var(--text-muted);font-size:10px;">(С коррекцией)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="korreksiya_bilan_od" class="form-control" value="{{ active_visit.korreksiya_bilan_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="korreksiya_bilan_os" class="form-control" value="{{ active_visit.korreksiya_bilan_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Shishasimon tana <span style="color:var(--text-muted);font-size:10px;">(Стекловидное тело)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="shishasimon_tana_od" class="form-control" value="{{ active_visit.shishasimon_tana_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="shishasimon_tana_os" class="form-control" value="{{ active_visit.shishasimon_tana_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Oftalmoskopiya <span style="color:var(--text-muted);font-size:10px;">(Офтальмоскопия)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="oftalmoskopiya_od" class="form-control" value="{{ active_visit.oftalmoskopiya_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="oftalmoskopiya_os" class="form-control" value="{{ active_visit.oftalmoskopiya_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Fundus <span style="color:var(--text-muted);font-size:10px;">(Глазное дно)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="fundus_od" class="form-control" value="{{ active_visit.fundus_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="fundus_os" class="form-control" value="{{ active_visit.fundus_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">УБМ</td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="ubm_od" class="form-control" value="{{ active_visit.ubm_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="ubm_os" class="form-control" value="{{ active_visit.ubm_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">OCT</td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="oct_od" class="form-control" value="{{ active_visit.oct_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="oct_os" class="form-control" value="{{ active_visit.oct_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">KP (Pachymetriya)</td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="kp_od" class="form-control" value="{{ active_visit.kp_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="kp_os" class="form-control" value="{{ active_visit.kp_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">B-skan <span style="color:var(--text-muted);font-size:10px;">(В-скан)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="b_skan_od" class="form-control" value="{{ active_visit.b_skan_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="b_skan_os" class="form-control" value="{{ active_visit.b_skan_os }}" style="font-size:11px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 8px;border:1px solid #ccc;font-size:11px;">Periferiya <span style="color:var(--text-muted);font-size:10px;">(Периферия)</span></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="periferiya_od" class="form-control" value="{{ active_visit.periferiya_od }}" style="font-size:11px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ccc;"><input type="text" name="periferiya_os" class="form-control" value="{{ active_visit.periferiya_os }}" style="font-size:11px;"></td>
+                    </tr>
+                </tbody>
+            </table>
+            <div class="form-group"><label>Tashxis <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Диагноз)</span></label><textarea name="tashxis" class="form-control" rows="2">{{ active_visit.tashxis }}</textarea></div>
+            <div class="form-group"><label>Tavsiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Рекомендации)</span></label><textarea name="tavsiya" class="form-control" rows="2">{{ active_visit.tavsiya }}</textarea></div>
+
+            <!-- Retsept section -->
+            <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:4px 8px;font-size:12px;align-items:center;margin-top:8px;margin-bottom:12px;">
+                <div></div><div style="font-weight:600;font-size:11px;text-align:center;">OD</div><div style="font-weight:600;font-size:11px;text-align:center;">OS</div>
+                <div style="font-size:11px;">Retsept uzoq <span style="color:var(--text-muted);">(Рецепт вдаль)</span></div><input type="text" name="retsept_uzoq_od" class="form-control" value="{{ active_visit.retsept_uzoq_od }}"><input type="text" name="retsept_uzoq_os" class="form-control" value="{{ active_visit.retsept_uzoq_os }}">
+                <div style="font-size:11px;">Retsept yaqin <span style="color:var(--text-muted);">(Рецепт вблизи)</span></div><input type="text" name="retsept_yaqin_od" class="form-control" value="{{ active_visit.retsept_yaqin_od }}"><input type="text" name="retsept_yaqin_os" class="form-control" value="{{ active_visit.retsept_yaqin_os }}">
+                <div style="font-size:11px;">Retsept kontakt linza <span style="color:var(--text-muted);">(Контактные линзы)</span></div><input type="text" name="retsept_kontakt_od" class="form-control" value="{{ active_visit.retsept_kontakt_od }}"><input type="text" name="retsept_kontakt_os" class="form-control" value="{{ active_visit.retsept_kontakt_os }}">
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('tibbiyYozuvModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- KO'Z KO'RIGI MODAL — Eye exam A4 form -->
+<div class="modal-backdrop" id="kozKorigiModal">
+    <div class="modal" style="max-width:850px;max-height:90vh;overflow-y:auto;">
+        <h3>Ko'z Ko'rigi <span style="color:var(--text-muted);font-weight:400;font-size:13px;">(Осмотр глаз)</span></h3>
+        <form method="post" action="{% url 'doctor_add_eye_exam' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <!-- Header info (auto-filled) -->
+            <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;">
+                <div><strong>Bemor:</strong> {{ patient.full_name }}</div>
+                <div><strong>Tug'ilgan sana:</strong> {{ patient.birth_date|date:"d.m.Y"|default:"—" }}{% if patient.age %} ({{ patient.age }} yosh){% endif %}</div>
+                <div><strong>Shifokor:</strong> Dr. {{ doctor.full_name }}</div>
+            </div>
+
+            <div class="form-group"><label>Protokol № <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Номер протокола)</span></label><input type="text" name="protocol_number" class="form-control" placeholder="Protokol raqamini kiriting"></div>
+            <div class="form-group"><label>Ko'z anamezi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Глазной анамнез)</span></label><textarea name="koz_anamezi" class="form-control" rows="2"></textarea></div>
+
+            <h4 style="font-size:13px;margin:16px 0 8px;">Refraktsiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Рефракция)</span></h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <div style="font-weight:600;font-size:12px;margin-bottom:4px;">O'NG <span style="color:var(--text-muted);font-weight:400;">(Правый)</span></div>
+                    <div class="form-row"><div class="form-group"><label style="font-size:10px;">SPH</label><input type="text" name="ref_ong_sph" class="form-control"></div><div class="form-group"><label style="font-size:10px;">CYL</label><input type="text" name="ref_ong_cyl" class="form-control"></div><div class="form-group"><label style="font-size:10px;">AXIS</label><input type="text" name="ref_ong_axis" class="form-control"></div></div>
+                </div>
+                <div>
+                    <div style="font-weight:600;font-size:12px;margin-bottom:4px;">CHAP <span style="color:var(--text-muted);font-weight:400;">(Левый)</span></div>
+                    <div class="form-row"><div class="form-group"><label style="font-size:10px;">SPH</label><input type="text" name="ref_chap_sph" class="form-control"></div><div class="form-group"><label style="font-size:10px;">CYL</label><input type="text" name="ref_chap_cyl" class="form-control"></div><div class="form-group"><label style="font-size:10px;">AXIS</label><input type="text" name="ref_chap_axis" class="form-control"></div></div>
+                </div>
+            </div>
+
+            <h4 style="font-size:13px;margin:12px 0 8px;">Subyektiv refraktsiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Суб. рефракция)</span></h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div><div class="form-row"><div class="form-group"><label style="font-size:10px;">SPH</label><input type="text" name="sub_ref_ong_sph" class="form-control"></div><div class="form-group"><label style="font-size:10px;">CYL</label><input type="text" name="sub_ref_ong_cyl" class="form-control"></div><div class="form-group"><label style="font-size:10px;">AXIS</label><input type="text" name="sub_ref_ong_axis" class="form-control"></div></div></div>
+                <div><div class="form-row"><div class="form-group"><label style="font-size:10px;">SPH</label><input type="text" name="sub_ref_chap_sph" class="form-control"></div><div class="form-group"><label style="font-size:10px;">CYL</label><input type="text" name="sub_ref_chap_cyl" class="form-control"></div><div class="form-group"><label style="font-size:10px;">AXIS</label><input type="text" name="sub_ref_chap_axis" class="form-control"></div></div></div>
+            </div>
+
+            <h4 style="font-size:13px;margin:12px 0 8px;">Sikloplejili refraktsiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Циклоплег. рефракция)</span></h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div><div class="form-row"><div class="form-group"><label style="font-size:10px;">SPH</label><input type="text" name="sik_ref_ong_sph" class="form-control"></div><div class="form-group"><label style="font-size:10px;">CYL</label><input type="text" name="sik_ref_ong_cyl" class="form-control"></div><div class="form-group"><label style="font-size:10px;">AXIS</label><input type="text" name="sik_ref_ong_axis" class="form-control"></div></div></div>
+                <div><div class="form-row"><div class="form-group"><label style="font-size:10px;">SPH</label><input type="text" name="sik_ref_chap_sph" class="form-control"></div><div class="form-group"><label style="font-size:10px;">CYL</label><input type="text" name="sik_ref_chap_cyl" class="form-control"></div><div class="form-group"><label style="font-size:10px;">AXIS</label><input type="text" name="sik_ref_chap_axis" class="form-control"></div></div></div>
+            </div>
+
+            <h4 style="font-size:13px;margin:16px 0 8px;">Klinik topilmalar <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Klin. nahodki)</span></h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <div style="font-weight:600;font-size:12px;margin-bottom:4px;">O'NG</div>
+                    <div class="form-group"><label style="font-size:11px;">Tuzatilmagan ko'rish <span style="color:var(--text-muted);font-size:10px;">(Некорр. зрение)</span></label><input type="text" name="tuzatilmagan_korish_ong" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:11px;">Tuzatilgan ko'rish <span style="color:var(--text-muted);font-size:10px;">(Корр. зрение)</span></label><input type="text" name="tuzatilgan_korish_ong" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:11px;">Old segment <span style="color:var(--text-muted);font-size:10px;">(Перед. сегм.)</span></label><input type="text" name="old_segment_ong" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:11px;">Orqa segment <span style="color:var(--text-muted);font-size:10px;">(Задн. сегм.)</span></label><input type="text" name="orqa_segment_ong" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:11px;">Ko'z ichi bosimi <span style="color:var(--text-muted);font-size:10px;">(ВГД)</span></label><input type="text" name="koz_bosimi_ong" class="form-control"></div>
+                </div>
+                <div>
+                    <div style="font-weight:600;font-size:12px;margin-bottom:4px;">CHAP</div>
+                    <div class="form-group"><label style="font-size:11px;">Tuzatilmagan ko'rish</label><input type="text" name="tuzatilmagan_korish_chap" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:11px;">Tuzatilgan ko'rish</label><input type="text" name="tuzatilgan_korish_chap" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:11px;">Old segment</label><input type="text" name="old_segment_chap" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:11px;">Orqa segment</label><input type="text" name="orqa_segment_chap" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:11px;">Ko'z ichi bosimi</label><input type="text" name="koz_bosimi_chap" class="form-control"></div>
+                </div>
+            </div>
+
+            <div class="form-group"><label>Oyku / Tarix <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(История болезни)</span></label><textarea name="oyku" class="form-control" rows="3"></textarea></div>
+
+            <h4 style="font-size:13px;margin:16px 0 8px;">Retsept <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Preskripshon)</span></h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <div style="font-weight:600;font-size:12px;margin-bottom:4px;">Uzoq <span style="color:var(--text-muted);font-weight:400;">(Далеко)</span></div>
+                    <div style="font-size:11px;margin-bottom:2px;">O'ng:</div>
+                    <div class="form-row"><div class="form-group"><label style="font-size:10px;">SPH</label><input type="text" name="uzoq_ong_sph" class="form-control"></div><div class="form-group"><label style="font-size:10px;">CYL</label><input type="text" name="uzoq_ong_cyl" class="form-control"></div><div class="form-group"><label style="font-size:10px;">AXIS</label><input type="text" name="uzoq_ong_axis" class="form-control"></div></div>
+                    <div style="font-size:11px;margin-bottom:2px;">Chap:</div>
+                    <div class="form-row"><div class="form-group"><label style="font-size:10px;">SPH</label><input type="text" name="uzoq_chap_sph" class="form-control"></div><div class="form-group"><label style="font-size:10px;">CYL</label><input type="text" name="uzoq_chap_cyl" class="form-control"></div><div class="form-group"><label style="font-size:10px;">AXIS</label><input type="text" name="uzoq_chap_axis" class="form-control"></div></div>
+                </div>
+                <div>
+                    <div style="font-weight:600;font-size:12px;margin-bottom:4px;">Yaqin <span style="color:var(--text-muted);font-weight:400;">(Близко)</span></div>
+                    <div style="font-size:11px;margin-bottom:2px;">O'ng:</div>
+                    <div class="form-row"><div class="form-group"><label style="font-size:10px;">SPH</label><input type="text" name="yaqin_ong_sph" class="form-control"></div><div class="form-group"><label style="font-size:10px;">CYL</label><input type="text" name="yaqin_ong_cyl" class="form-control"></div><div class="form-group"><label style="font-size:10px;">AXIS</label><input type="text" name="yaqin_ong_axis" class="form-control"></div></div>
+                    <div style="font-size:11px;margin-bottom:2px;">Chap:</div>
+                    <div class="form-row"><div class="form-group"><label style="font-size:10px;">SPH</label><input type="text" name="yaqin_chap_sph" class="form-control"></div><div class="form-group"><label style="font-size:10px;">CYL</label><input type="text" name="yaqin_chap_cyl" class="form-control"></div><div class="form-group"><label style="font-size:10px;">AXIS</label><input type="text" name="yaqin_chap_axis" class="form-control"></div></div>
+                </div>
+            </div>
+
+            <h4 style="font-size:13px;margin:16px 0 8px;">Linza jadvali <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Tablitsa linz)</span></h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+                <div>
+                    <div style="font-size:11px;font-weight:600;margin-bottom:4px;">O'ng</div>
+                    <div class="form-group"><label style="font-size:10px;">Linza</label><input type="text" name="linza_ong" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:10px;">Diametr</label><input type="text" name="diametr_ong" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:10px;">Radius</label><input type="text" name="radius_ong" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:10px;">Dioptriya</label><input type="text" name="dioptriya_ong" class="form-control"></div>
+                </div>
+                <div>
+                    <div style="font-size:11px;font-weight:600;margin-bottom:4px;">Chap</div>
+                    <div class="form-group"><label style="font-size:10px;">Linza</label><input type="text" name="linza_chap" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:10px;">Diametr</label><input type="text" name="diametr_chap" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:10px;">Radius</label><input type="text" name="radius_chap" class="form-control"></div>
+                    <div class="form-group"><label style="font-size:10px;">Dioptriya</label><input type="text" name="dioptriya_chap" class="form-control"></div>
+                </div>
+            </div>
+
+            <h4 style="font-size:13px;margin:16px 0 8px;">ICD</h4>
+            <div class="form-row">
+                <div class="form-group"><label style="font-size:10px;">ICD kodi <span style="color:var(--text-muted);">(Код МКБ)</span></label><input type="text" name="icd_kodi" class="form-control"></div>
+                <div class="form-group"><label style="font-size:10px;">ICD nomi <span style="color:var(--text-muted);">(Nazv. MKB)</span></label><input type="text" name="icd_nomi" class="form-control"></div>
+            </div>
+            <div class="form-row">
+                <div class="form-group"><label style="font-size:10px;">Tashxis turi <span style="color:var(--text-muted);">(Тип диагноза)</span></label><input type="text" name="tashxis_turi" class="form-control"></div>
+                <div class="form-group"><label style="font-size:10px;">Yo'nalish <span style="color:var(--text-muted);">(Сторона)</span></label><input type="text" name="yonalish" class="form-control"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('kozKorigiModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- KO'CHIRMA MODAL — Discharge form -->
+<div class="modal-backdrop" id="vipiskaModal">
+    <div class="modal" style="max-width:800px;max-height:90vh;overflow-y:auto;">
+        <h3>Ko'chirma <span style="color:var(--text-muted);font-weight:400;font-size:13px;">(Выписка)</span></h3>
+        <form method="post" action="{% url 'doctor_add_discharge' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <div class="form-group"><label>Protokol № <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Номер протокола)</span></label><input type="text" name="protocol_number" class="form-control" placeholder="Protokol raqamini kiriting"></div>
+            <!-- Header info -->
+            <div style="background:var(--bg);border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;">
+                <div><strong>Bemor:</strong> {{ patient.full_name }}</div>
+                <div><strong>Tug'ilgan sana:</strong> {{ patient.birth_date|date:"d.m.Y"|default:"—" }} &middot; {{ patient.get_gender_display|default:"—" }}</div>
+                <div><strong>Manzil:</strong> {{ patient.address|default:"—" }}</div>
+                <div><strong>Telefon:</strong> {{ patient.phone }}</div>
+                <div><strong>Shifokor:</strong> Dr. {{ doctor.full_name }}</div>
+            </div>
+
+            <div class="form-group"><label>Shikoyat / Tarix <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Жалобы / История)</span></label><textarea name="shikoyat_tarix" class="form-control" rows="3"></textarea></div>
+            <div class="form-group"><label>Shaxsiy/Oilaviy tarix <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Лич./Сем. анамнез)</span></label><textarea name="shaxsiy_oilaviy_tarix" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Tizimli anamnez <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Системный анамнез)</span></label><textarea name="tizimli_anamnez" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Ko'z anamezi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Глазной анамнез)</span></label><textarea name="koz_anamezi" class="form-control" rows="2"></textarea></div>
+
+            <div class="form-group"><label>Tashxis kodi–nomi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Код–назв. диагноза)</span></label><textarea name="tashxis_kodi_nomi" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Operatsiya kodi–nomi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Код–назв. операции)</span></label><textarea name="operatsiya_kodi_nomi" class="form-control" rows="2"></textarea></div>
+
+            <h4 style="font-size:13px;margin:16px 0 8px;">Ko'rik natijalari <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Данные осмотра)</span></h4>
+            <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:4px 8px;font-size:12px;align-items:center;">
+                <div></div><div style="font-weight:600;font-size:11px;">O'NG <span style="color:var(--text-muted);font-weight:400;">(Правый)</span></div><div style="font-weight:600;font-size:11px;">CHAP <span style="color:var(--text-muted);font-weight:400;">(Левый)</span></div>
+                <div style="font-size:11px;">Old segment <span style="color:var(--text-muted);">(Перед. сегм.)</span></div><input type="text" name="old_segment_ong" class="form-control"><input type="text" name="old_segment_chap" class="form-control">
+                <div style="font-size:11px;">Fundus <span style="color:var(--text-muted);">(Глазное дно)</span></div><input type="text" name="fundus_ong" class="form-control"><input type="text" name="fundus_chap" class="form-control">
+                <div style="font-size:11px;">Preop <span style="color:var(--text-muted);">(До операции)</span></div><input type="text" name="preop_ong" class="form-control"><input type="text" name="preop_chap" class="form-control">
+                <div style="font-size:11px;">Postop <span style="color:var(--text-muted);">(После операции)</span></div><input type="text" name="postop_ong" class="form-control"><input type="text" name="postop_chap" class="form-control">
+                <div style="font-size:11px;">Ko'z bosimi <span style="color:var(--text-muted);">(ВГД)</span></div><input type="text" name="koz_bosimi_ong" class="form-control"><input type="text" name="koz_bosimi_chap" class="form-control">
+                <div style="font-size:11px;">Daraja <span style="color:var(--text-muted);">(Степень)</span></div><input type="text" name="daraja_ong" class="form-control"><input type="text" name="daraja_chap" class="form-control">
+                <div style="font-size:11px;">Qovoq <span style="color:var(--text-muted);">(Веко)</span></div><input type="text" name="qovoq_ong" class="form-control"><input type="text" name="qovoq_chap" class="form-control">
+                <div style="font-size:11px;">Glob H./Covert</div><input type="text" name="glob_ong" class="form-control"><input type="text" name="glob_chap" class="form-control">
+            </div>
+
+            <div class="form-group" style="margin-top:12px;"><label>Muhim tekshiruv natijalari <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Важные рез-ты обслед.)</span></label><textarea name="muhim_tekshiruv" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Anesteziya turi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Тип анестезии)</span></label><input type="text" name="anesteziya_turi" class="form-control"></div>
+
+            <div class="form-group"><label>Operatsiya bo'yicha izohlar <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Primech. k operatsii)</span></label><textarea name="operatsiya_izohlar" class="form-control" rows="4"></textarea></div>
+
+            <div class="form-group"><label>Chiqish holati <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Статус при выписке)</span></label><input type="text" name="chiqish_holati" class="form-control"></div>
+            <div class="form-group"><label>Davolash <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Лечение)</span></label><textarea name="davolash" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Anesteziya izohi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Примеч. к анестезии)</span></label><textarea name="anesteziya_izohi" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Ishlatilgan linzalar <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Исп. линзы)</span></label><textarea name="ishlatilgan_linzalar" class="form-control" rows="2"></textarea></div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('vipiskaModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- LASIK MODAL -->
+<div class="modal-backdrop" id="lasikModal">
+    <div class="modal" style="max-width:800px;max-height:90vh;overflow-y:auto;">
+        <h3>LASIK <span style="color:var(--text-muted);font-weight:400;font-size:13px;">(ЛАСИК)</span></h3>
+        <form method="post" action="{% url 'doctor_add_lasik' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <div class="form-group"><label>Protokol № <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Номер протокола)</span></label><input type="text" name="protocol_number" class="form-control" placeholder="Protokol raqamini kiriting"></div>
+            <div class="form-group"><label>Bemor: {{ patient.full_name }} &nbsp;·&nbsp; T.s.: {{ patient.birth_date|date:"d.m.Y"|default:"—" }} &nbsp;·&nbsp; Shifokor: Dr. {{ doctor.full_name }}</label></div>
+            <div class="form-group"><label>Tashxis <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Диагноз — Tibbiy yozuvdan)</span></label><textarea name="tashxis" class="form-control" rows="2">{{ active_tashxis }}</textarea></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+                <div class="form-group">
+                    <label style="font-size:11px;">Operatsiya turi</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:8px 16px;margin-top:4px;font-size:12px;">
+                        <label style="display:flex;align-items:center;gap:4px;font-weight:normal;"><input type="radio" name="operatsiya_turi" value="LASIK"> LASIK</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-weight:normal;"><input type="radio" name="operatsiya_turi" value="LASEK"> LASEK</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-weight:normal;"><input type="radio" name="operatsiya_turi" value="TENEO317"> TENEO317</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-weight:normal;"><input type="radio" name="operatsiya_turi" value="PRK"> PRK</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-weight:normal;"><input type="radio" name="operatsiya_turi" value="RTK"> RTK</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-weight:normal;"><input type="radio" name="operatsiya_turi" value="Dokorreksiya"> Dokorreksiya</label>
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div class="form-group"><label style="font-size:11px;">Ko'z <span style="color:var(--text-muted);">(Глаз)</span></label>
+                        <select name="ko_z" class="form-control"><option value="">—</option><option value="OD">OD</option><option value="OS">OS</option><option value="OU">OU</option></select></div>
+                    <div class="form-group"><label style="font-size:11px;">Operatsiya sanasi</label><input type="date" name="operatsiya_sanasi" class="form-control"></div>
+                </div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+                <div class="form-group"><label style="font-size:11px;">Hirurg / хирург</label><input type="text" name="oper_hirurg" class="form-control" value="{{ doctor.full_name }}"></div>
+                <div class="form-group"><label style="font-size:11px;">Assistent / ассистент</label><input type="text" name="assistent" class="form-control"></div>
+                <div class="form-group"><label style="font-size:11px;">Octavius</label>
+                    <label style="display:flex;align-items:center;gap:6px;font-weight:normal;margin-top:6px;"><input type="checkbox" name="octavius"> Ha / Да</label></div>
+            </div>
+            <!-- Pre-op vision -->
+            <h4 style="font-size:12px;margin:10px 0 4px;text-decoration:underline;">Острота зрения — до операции <span style="font-weight:400;text-decoration:none;color:var(--text-muted);font-size:11px;">(Operatsiyadan oldin)</span></h4>
+            <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:8px;">
+                <thead>
+                    <tr style="background:var(--bg);">
+                        <th style="padding:3px 6px;border:1px solid #ddd;width:32px;"></th>
+                        <th style="padding:3px 6px;border:1px solid #ddd;font-weight:600;">Vis</th>
+                        <th style="padding:3px 6px;border:1px solid #ddd;font-weight:600;">Sph(-)</th>
+                        <th style="padding:3px 6px;border:1px solid #ddd;font-weight:600;">Cyl(-)</th>
+                        <th style="padding:3px 6px;border:1px solid #ddd;font-weight:600;">Axis</th>
+                        <th style="padding:3px 6px;border:1px solid #ddd;font-weight:600;">= Corr</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td style="padding:3px 6px;border:1px solid #ddd;font-weight:700;">OD</td>
+                        <td style="padding:2px 4px;border:1px solid #ddd;"><input type="text" name="preop_vis_od" class="form-control" style="font-size:11px;padding:2px 4px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ddd;"><input type="text" name="preop_sph_od" class="form-control" value="{{ lasik_autofill.preop_sph_od }}" style="font-size:11px;padding:2px 4px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ddd;"><input type="text" name="preop_cyl_od" class="form-control" value="{{ lasik_autofill.preop_cyl_od }}" style="font-size:11px;padding:2px 4px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ddd;"><input type="text" name="preop_axis_od" class="form-control" value="{{ lasik_autofill.preop_axis_od }}" style="font-size:11px;padding:2px 4px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ddd;"><input type="text" name="preop_corr_od" class="form-control" style="font-size:11px;padding:2px 4px;"></td>
+                    </tr>
+                    <tr>
+                        <td style="padding:3px 6px;border:1px solid #ddd;font-weight:700;">OS</td>
+                        <td style="padding:2px 4px;border:1px solid #ddd;"><input type="text" name="preop_vis_os" class="form-control" style="font-size:11px;padding:2px 4px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ddd;"><input type="text" name="preop_sph_os" class="form-control" value="{{ lasik_autofill.preop_sph_os }}" style="font-size:11px;padding:2px 4px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ddd;"><input type="text" name="preop_cyl_os" class="form-control" value="{{ lasik_autofill.preop_cyl_os }}" style="font-size:11px;padding:2px 4px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ddd;"><input type="text" name="preop_axis_os" class="form-control" value="{{ lasik_autofill.preop_axis_os }}" style="font-size:11px;padding:2px 4px;"></td>
+                        <td style="padding:2px 4px;border:1px solid #ddd;"><input type="text" name="preop_corr_os" class="form-control" style="font-size:11px;padding:2px 4px;"></td>
+                    </tr>
+                </tbody>
+            </table>
+            <!-- VGD (separate from vision) -->
+            <h4 style="font-size:12px;margin:10px 0 4px;text-decoration:underline;">ВГД <span style="font-weight:400;text-decoration:none;color:var(--text-muted);font-size:11px;">(Ko'z ichi bosimi)</span></h4>
+            <div style="display:flex;gap:16px;align-items:center;font-size:11px;margin-bottom:10px;">
+                <span style="font-weight:700;">OD</span>
+                <input type="text" name="vgd_od" class="form-control" value="{{ lasik_autofill.vgd_od }}" style="font-size:11px;padding:3px 6px;max-width:100px;">
+                <span style="font-weight:700;margin-left:12px;">OS</span>
+                <input type="text" name="vgd_os" class="form-control" value="{{ lasik_autofill.vgd_os }}" style="font-size:11px;padding:3px 6px;max-width:100px;">
+            </div>
+            <!-- Post-op vision -->
+            <h4 style="font-size:12px;margin:10px 0 4px;text-decoration:underline;">Острота зрения — после операции <span style="font-weight:400;text-decoration:none;color:var(--text-muted);font-size:11px;">(Operatsiyadan keyin)</span></h4>
+            <div style="display:flex;gap:16px;align-items:center;font-size:11px;margin-bottom:10px;">
+                <span style="font-weight:700;">OD</span>
+                <input type="text" name="postop_vis_od" class="form-control" style="font-size:11px;padding:3px 6px;max-width:120px;">
+                <span style="font-weight:700;margin-left:12px;">OS</span>
+                <input type="text" name="postop_vis_os" class="form-control" style="font-size:11px;padding:3px 6px;max-width:120px;">
+            </div>
+            <div class="form-group"><label style="font-size:11px;">Holat <span style="color:var(--text-muted);">(Состояние)</span></label><textarea name="holat" class="form-control" rows="2" placeholder="Глаз спокоен, лоскут прилегает, среды прозрачные"></textarea></div>
+            <div class="form-group"><label style="font-size:11px;">Tavsiya <span style="color:var(--text-muted);">(Рекомендации)</span></label><textarea name="tavsiya" class="form-control" rows="3" placeholder="1-наблюдение офтальмолога. 2-ограничение физической нагрузки."></textarea></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('lasikModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- KO'SQULILIK (STRABISMUS) MODAL -->
+<div class="modal-backdrop" id="strabismusModal">
+    <div class="modal" style="max-width:750px;max-height:90vh;overflow-y:auto;">
+        <h3>Ko'squlilik <span style="color:var(--text-muted);font-weight:400;font-size:13px;">(Косоглазие)</span></h3>
+        <form method="post" action="{% url 'doctor_add_strabismus' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <div class="form-group"><label>Protokol № <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Номер протокола)</span></label><input type="text" name="protocol_number" class="form-control" placeholder="Protokol raqamini kiriting"></div>
+            <div class="form-group"><label>Bemor: {{ patient.full_name }} &nbsp;·&nbsp; T.s.: {{ patient.birth_date|date:"d.m.Y"|default:"—" }}</label></div>
+            <div class="form-group"><label>Shikoyat <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Жалобы)</span></label><textarea name="shikoyat" class="form-control" rows="2"></textarea></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group"><label style="font-size:11px;">VIS <span style="color:var(--text-muted);">(Острота зрения)</span></label><input type="text" name="vis" class="form-control"></div>
+                <div class="form-group"><label style="font-size:11px;">Deviyatsiya darajasi <span style="color:var(--text-muted);">(Степень девиации °)</span></label><input type="text" name="dev_darajasi" class="form-control"></div>
+            </div>
+            <div class="form-group"><label>Tashxis <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Диагноз — Tibbiy yozuvdan)</span></label><textarea name="tashxis" class="form-control" rows="2">{{ active_tashxis }}</textarea></div>
+            <h4 style="font-size:12px;margin:10px 0 6px;">Operatsiya <span style="color:var(--text-muted);font-weight:400;">(Хирургия)</span></h4>
+            <div style="display:grid;grid-template-columns:auto 1fr 1fr 1fr;gap:4px 8px;align-items:center;font-size:11px;margin-bottom:10px;">
+                <div></div><div style="font-weight:600;">Muskul <span style="color:var(--text-muted);">(Мышца)</span></div><div style="font-weight:600;">Ko'z <span style="color:var(--text-muted);">(Глаз)</span></div><div style="font-weight:600;">mm</div>
+                <div>Retsessiya</div>
+                <input type="text" name="recession_muscle" class="form-control">
+                <select name="recession_eye" class="form-control"><option value="">—</option><option value="OD">OD</option><option value="OS">OS</option></select>
+                <input type="text" name="recession_mm" class="form-control">
+                <div>Rezeksiya</div>
+                <input type="text" name="resection_muscle" class="form-control">
+                <select name="resection_eye" class="form-control"><option value="">—</option><option value="OD">OD</option><option value="OS">OS</option></select>
+                <input type="text" name="resection_mm" class="form-control">
+                <div>Transpozitsiya</div>
+                <input type="text" class="form-control" disabled placeholder="—">
+                <select name="transposition_eye" class="form-control"><option value="">—</option><option value="OD">OD</option><option value="OS">OS</option></select>
+                <div></div>
+            </div>
+            <div class="form-group"><label style="font-size:11px;">Postop deviyatsiya °</label><input type="text" name="postop_dev" class="form-control"></div>
+            <div class="form-group"><label>Tavsiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Рекомендации)</span></label><textarea name="tavsiya" class="form-control" rows="3" placeholder="1. Флоксацин 1 кап × 4 раза/день. 2. Повторный осмотр через 7 дней."></textarea></div>
+            <div class="form-group" style="margin-top:10px;">
+                <label style="font-weight:600;">G'ilaylik operatsiyasidan keyin <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(После операции косоглазия)</span></label>
+                <textarea name="gilaylik_keyin" class="form-control" rows="5" placeholder="O'zbekcha..."></textarea>
+                <label style="margin-top:6px;font-size:11px;color:var(--text-muted);">Русский перевод:</label>
+                <textarea name="gilaylik_keyin_ru" class="form-control" rows="5" placeholder="На русском..."></textarea>
+            </div>
+            <div class="form-group" style="margin-top:10px;">
+                <label style="font-weight:600;">Dorilar <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Лекарства)</span></label>
+                <textarea name="dorilar" class="form-control" rows="5" placeholder="O'zbekcha..."></textarea>
+                <label style="margin-top:6px;font-size:11px;color:var(--text-muted);">Русский перевод:</label>
+                <textarea name="dorilar_ru" class="form-control" rows="5" placeholder="На русском..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('strabismusModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- OPERATSIONNAYA KO'CHIRMA (POSTOP) MODAL -->
+<div class="modal-backdrop" id="postopModal">
+    <div class="modal" style="max-width:800px;max-height:90vh;overflow-y:auto;">
+        <h3>Operatsionnaya ko'chirma <span style="color:var(--text-muted);font-weight:400;font-size:13px;">(Операционная выписка)</span></h3>
+        <form method="post" action="{% url 'doctor_add_postop' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <div class="form-group"><label>Protokol № <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(История болезни №)</span></label><input type="text" name="protocol_number" class="form-control" placeholder="Protokol raqamini kiriting"></div>
+            <div class="form-group"><label>Bemor: {{ patient.full_name }} &nbsp;·&nbsp; T.s.: {{ patient.birth_date|date:"d.m.Y"|default:"—" }}</label></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group"><label style="font-size:11px;">Davolash boshlanishi <span style="color:var(--text-muted);">(Дата поступления)</span></label><input type="date" name="davolash_boshlanishi" class="form-control"></div>
+                <div class="form-group"><label style="font-size:11px;">Davolash tugashi <span style="color:var(--text-muted);">(Дата выписки)</span></label><input type="date" name="davolash_tugashi" class="form-control"></div>
+            </div>
+            <div class="form-group"><label>Asosiy tashxis <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Основной диагноз — Tibbiy yozuvdan)</span></label><textarea name="asosiy_tashxis" class="form-control" rows="2">{{ active_tashxis }}</textarea></div>
+            <div class="form-group"><label>Qo'shimcha tashxis <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Доп. диагноз)</span></label><textarea name="qoshimcha_tashxis" class="form-control" rows="1"></textarea></div>
+            <div class="form-group"><label>Hamroh kasallik <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Сопутствующее)</span></label><textarea name="hamroh_kasallik" class="form-control" rows="1"></textarea></div>
+            <h4 style="font-size:12px;margin:10px 0 6px;">Qabulda <span style="color:var(--text-muted);font-weight:400;">(При поступлении)</span></h4>
+            <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:4px 8px;align-items:center;font-size:11px;margin-bottom:10px;">
+                <div></div><div style="font-weight:600;text-align:center;">OD</div><div style="font-weight:600;text-align:center;">OS</div>
+                <div>Visus</div><input type="text" name="qabulda_vis_od" class="form-control"><input type="text" name="qabulda_vis_os" class="form-control">
+                <div>Holat <span style="color:var(--text-muted);">(Состояние)</span></div><input type="text" name="qabulda_od" class="form-control"><input type="text" name="qabulda_os" class="form-control">
+            </div>
+            <div class="form-group"><label>Xususiyatlar <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Особенности)</span></label><textarea name="xususiyatlar" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Operatsiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Операция)</span></label><textarea name="operatsiya" class="form-control" rows="2"></textarea></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+                <div class="form-group"><label style="font-size:11px;">Narkoz turi <span style="color:var(--text-muted);">(Тип анестезии)</span></label>
+                    <select name="narkoz_turi" class="form-control"><option value="">—</option><option value="vv">В/в</option><option value="mestnaya">Местная</option><option value="obshaya">Общая</option></select></div>
+                <div class="form-group"><label style="font-size:11px;">Operatsiya sanasi</label><input type="date" name="operatsiya_sanasi" class="form-control"></div>
+                <div class="form-group"><label style="font-size:11px;">Hirurg</label><input type="text" name="hirurg" class="form-control" value="{{ doctor.full_name }}"></div>
+            </div>
+            <h4 style="font-size:12px;margin:10px 0 6px;">Chiqimda <span style="color:var(--text-muted);font-weight:400;">(При выписке)</span></h4>
+            <div style="display:grid;grid-template-columns:auto 1fr 1fr;gap:4px 8px;align-items:center;font-size:11px;margin-bottom:10px;">
+                <div></div><div style="font-weight:600;text-align:center;">OD</div><div style="font-weight:600;text-align:center;">OS</div>
+                <div>Visus</div><input type="text" name="chiqimda_vis_od" class="form-control"><input type="text" name="chiqimda_vis_os" class="form-control">
+                <div>Holat</div><input type="text" name="chiqimda_od" class="form-control"><input type="text" name="chiqimda_os" class="form-control">
+            </div>
+            <div class="form-group"><label>Xususiyat chiqimda <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Особенность при выписке)</span></label><textarea name="xususiyat_chiqim" class="form-control" rows="2"></textarea></div>
+            <div class="form-group"><label>Tavsiya <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Рекомендации)</span></label><textarea name="tavsiya" class="form-control" rows="3" placeholder="Местный: антибиотик (10дн.), НПВС (1 мес.), ГКС по схеме. Общий: антибиотик/витамины."></textarea></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div class="form-group"><label style="font-size:11px;">Keyingi qayta ko'rish <span style="color:var(--text-muted);">(Повторный осмотр)</span></label><input type="text" name="keyingi_qayta_korish" class="form-control"></div>
+                <div class="form-group"><label style="font-size:11px;">Lech. vrach</label><input type="text" name="lech_vrach" class="form-control" value="{{ doctor.full_name }}"></div>
+            </div>
+            <div class="form-group" style="margin-top:10px;">
+                <label style="font-weight:600;">Bemorlarga eslatma <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Памятка пациента)</span></label>
+                <textarea name="bemor_eslatma" class="form-control" rows="6" placeholder="O'zbekcha..."></textarea>
+                <label style="margin-top:6px;font-size:11px;color:var(--text-muted);">Русский перевод:</label>
+                <textarea name="bemor_eslatma_ru" class="form-control" rows="6" placeholder="На русском..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('postopModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ADD VA MODAL — Task 14 -->
+<div class="modal-backdrop" id="addVaModal">
+    <div class="modal" style="max-width:650px;max-height:90vh;overflow-y:auto;">
+        <h3>Korreksiya qo'shish <span style="color:var(--text-muted);font-weight:400;font-size:13px;">(Ostrota zreniya s korrektsiyey)</span></h3>
+        <form method="post" action="{% url 'doctor_add_visual_acuity' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <h4 style="font-size:12px;margin:12px 0 6px;">Uzoq <span style="color:var(--text-muted);font-weight:400;">(Vdal')</span></h4>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="uzoq_od_sph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="uzoq_od_cyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="uzoq_od_ax" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="uzoq_od_vis" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="uzoq_os_sph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="uzoq_os_cyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="uzoq_os_ax" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="uzoq_os_vis" class="form-control"></div>
+            </div>
+
+            <h4 style="font-size:12px;margin:12px 0 6px;">Yaqin <span style="color:var(--text-muted);font-weight:400;">(Vblizi)</span></h4>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="yaqin_od_sph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="yaqin_od_cyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="yaqin_od_ax" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="yaqin_od_vis" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="yaqin_os_sph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="yaqin_os_cyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="yaqin_os_ax" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="yaqin_os_vis" class="form-control"></div>
+            </div>
+
+            <h4 style="font-size:12px;margin:12px 0 6px;">MKL</h4>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="mkl_od_sph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="mkl_od_cyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="mkl_od_ax" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="mkl_od_vis" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="mkl_os_sph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="mkl_os_cyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="mkl_os_ax" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="mkl_os_vis" class="form-control"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addVaModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT VA MODAL — Task 14 -->
+<div class="modal-backdrop" id="editVaModal">
+    <div class="modal" style="max-width:650px;max-height:90vh;overflow-y:auto;">
+        <h3>Korreksiya tahrirlash</h3>
+        <form method="post" id="editVaForm">
+            {% csrf_token %}
+            <h4 style="font-size:12px;margin:12px 0 6px;">Uzoq (Vdal')</h4>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="uzoq_od_sph" id="evaUzoqOdSph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="uzoq_od_cyl" id="evaUzoqOdCyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="uzoq_od_ax" id="evaUzoqOdAx" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="uzoq_od_vis" id="evaUzoqOdVis" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="uzoq_os_sph" id="evaUzoqOsSph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="uzoq_os_cyl" id="evaUzoqOsCyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="uzoq_os_ax" id="evaUzoqOsAx" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="uzoq_os_vis" id="evaUzoqOsVis" class="form-control"></div>
+            </div>
+            <h4 style="font-size:12px;margin:12px 0 6px;">Yaqin (Vblizi)</h4>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="yaqin_od_sph" id="evaYaqinOdSph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="yaqin_od_cyl" id="evaYaqinOdCyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="yaqin_od_ax" id="evaYaqinOdAx" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="yaqin_od_vis" id="evaYaqinOdVis" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="yaqin_os_sph" id="evaYaqinOsSph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="yaqin_os_cyl" id="evaYaqinOsCyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="yaqin_os_ax" id="evaYaqinOsAx" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="yaqin_os_vis" id="evaYaqinOsVis" class="form-control"></div>
+            </div>
+            <h4 style="font-size:12px;margin:12px 0 6px;">MKL</h4>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="mkl_od_sph" id="evaMklOdSph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="mkl_od_cyl" id="evaMklOdCyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="mkl_od_ax" id="evaMklOdAx" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="mkl_od_vis" id="evaMklOdVis" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row" style="grid-template-columns:40px 1fr 1fr 1fr 1fr;">
+                <div class="ref-krt-label" style="font-size:12px;">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">SPH</label><input type="text" name="mkl_os_sph" id="evaMklOsSph" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">CYL</label><input type="text" name="mkl_os_cyl" id="evaMklOsCyl" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">AX</label><input type="text" name="mkl_os_ax" id="evaMklOsAx" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:10px;">VIS</label><input type="text" name="mkl_os_vis" id="evaMklOsVis" class="form-control"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editVaModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ADD PROCEDURE MODAL -->
+<div class="modal-backdrop" id="procedureModal">
+    <div class="modal">
+        <h3>Protsedura qo'shish</h3>
+        <form method="post" action="{% url 'doctor_add_procedure' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <div class="form-group"><label>Tavsif</label><textarea name="procedure_description" id="procDesc" class="form-control" required placeholder="Protsedura tavsifini yozing..."></textarea></div>
+            <div class="form-row">
+                <div class="form-group"><label>Seans narxi (so'm)</label><input type="number" name="price_per_session" id="procPrice" class="form-control" step="1000" value="0" min="0" onchange="updateTotalPrice()"></div>
+                <div class="form-group"><label>Seanslar soni</label><input type="number" name="repetitions" id="procReps" class="form-control" min="1" value="1" required onchange="generateDateFields(); updateTotalPrice();"></div>
+            </div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--primary);">Jami: <span id="procTotal">0</span> so'm</div>
+            <div id="dateFieldsContainer"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('procedureModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary" onclick="return validateProcedureForm('procReps')">Qo'shish</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT PROCEDURE MODAL -->
+<div class="modal-backdrop" id="editProcedureModal">
+    <div class="modal">
+        <h3>Protsedura tahrirlash</h3>
+        <form method="post" id="editProcForm">
+            {% csrf_token %}
+            <div class="form-group"><label>Tavsif</label><textarea name="procedure_description" id="editProcDesc" class="form-control" required></textarea></div>
+            <div class="form-row">
+                <div class="form-group"><label>Seans narxi (so'm)</label><input type="number" name="price_per_session" id="editProcPrice" class="form-control" step="1000" value="0" min="0" onchange="updateEditTotalPrice()"></div>
+                <div class="form-group"><label>Seanslar soni</label><input type="number" name="repetitions" id="editProcReps" class="form-control" min="1" value="1" required onchange="generateEditDateFields(); updateEditTotalPrice();"></div>
+            </div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:12px;color:var(--primary);">Jami: <span id="editProcTotal">0</span> so'm</div>
+            <div id="editDateFieldsContainer"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editProcedureModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary" onclick="return validateProcedureForm('editProcReps')">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ADD REF MODAL -->
+<div class="modal-backdrop" id="addRefModal">
+    <div class="modal">
+        <h3>REF ma'lumotlarini kiritish</h3>
+        <form method="post" action="{% url 'doctor_add_refraction' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <div class="ref-krt-row">
+                <div class="ref-krt-label">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">S</label><input type="text" name="od_s" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">C</label><input type="text" name="od_c" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">A</label><input type="text" name="od_a" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row">
+                <div class="ref-krt-label">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">S</label><input type="text" name="os_s" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">C</label><input type="text" name="os_c" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">A</label><input type="text" name="os_a" class="form-control"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addRefModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT REF MODAL -->
+<div class="modal-backdrop" id="editRefModal">
+    <div class="modal">
+        <h3>REF tahrirlash</h3>
+        <form method="post" id="editRefForm">
+            {% csrf_token %}
+            <div class="ref-krt-row">
+                <div class="ref-krt-label">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">S</label><input type="text" name="od_s" id="editRefOdS" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">C</label><input type="text" name="od_c" id="editRefOdC" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">A</label><input type="text" name="od_a" id="editRefOdA" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row">
+                <div class="ref-krt-label">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">S</label><input type="text" name="os_s" id="editRefOsS" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">C</label><input type="text" name="os_c" id="editRefOsC" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">A</label><input type="text" name="os_a" id="editRefOsA" class="form-control"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editRefModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ADD KRT MODAL -->
+<div class="modal-backdrop" id="addKrtModal">
+    <div class="modal">
+        <h3>KRT ma'lumotlarini kiritish</h3>
+        <form method="post" action="{% url 'doctor_add_krt' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <div class="ref-krt-row">
+                <div class="ref-krt-label">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">D</label><input type="text" name="od_d" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">MM</label><input type="text" name="od_mm" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">A</label><input type="text" name="od_a" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row">
+                <div class="ref-krt-label">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">D</label><input type="text" name="os_d" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">MM</label><input type="text" name="os_mm" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">A</label><input type="text" name="os_a" class="form-control"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addKrtModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT KRT MODAL -->
+<div class="modal-backdrop" id="editKrtModal">
+    <div class="modal">
+        <h3>KRT tahrirlash</h3>
+        <form method="post" id="editKrtForm">
+            {% csrf_token %}
+            <div class="ref-krt-row">
+                <div class="ref-krt-label">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">D</label><input type="text" name="od_d" id="editKrtOdD" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">MM</label><input type="text" name="od_mm" id="editKrtOdMm" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">A</label><input type="text" name="od_a" id="editKrtOdA" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row">
+                <div class="ref-krt-label">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">D</label><input type="text" name="os_d" id="editKrtOsD" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">MM</label><input type="text" name="os_mm" id="editKrtOsMm" class="form-control"></div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">A</label><input type="text" name="os_a" id="editKrtOsA" class="form-control"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editKrtModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ADD IOP MODAL -->
+<div class="modal-backdrop" id="addIopModal">
+    <div class="modal">
+        <h3>IOP (ko'z bosimi)</h3>
+        <form method="post" action="{% url 'doctor_add_iop' doctor.pk active_visit.pk %}">
+            {% csrf_token %}
+            <div class="ref-krt-row" style="grid-template-columns: 50px 1fr;">
+                <div class="ref-krt-label">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">Qiymat</label><input type="text" name="od_value" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row" style="grid-template-columns: 50px 1fr;">
+                <div class="ref-krt-label">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">Qiymat</label><input type="text" name="os_value" class="form-control"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addIopModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT IOP MODAL -->
+<div class="modal-backdrop" id="editIopModal">
+    <div class="modal">
+        <h3>IOP tahrirlash</h3>
+        <form method="post" id="editIopForm">
+            {% csrf_token %}
+            <div class="ref-krt-row" style="grid-template-columns: 50px 1fr;">
+                <div class="ref-krt-label">OD</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">Qiymat</label><input type="text" name="od_value" id="editIopOd" class="form-control"></div>
+            </div>
+            <div class="ref-krt-row" style="grid-template-columns: 50px 1fr;">
+                <div class="ref-krt-label">OS</div>
+                <div class="form-group" style="margin-bottom:0;"><label style="font-size:11px;">Qiymat</label><input type="text" name="os_value" id="editIopOs" class="form-control"></div>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editIopModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+function openDocOverlay(id) { document.getElementById(id).classList.add('active'); }
+function closeDocOverlay(id) {
+    var el = document.getElementById(id);
+    el.classList.remove('active');
+}
+function switchToExamEdit(pk) {
+    document.getElementById('examView' + pk).style.display = 'none';
+    document.getElementById('examEdit' + pk).style.display = 'block';
+}
+function switchToExamView(pk) {
+    document.getElementById('examEdit' + pk).style.display = 'none';
+    document.getElementById('examView' + pk).style.display = 'block';
+}
+function switchToDiscEdit(pk) {
+    document.getElementById('discView' + pk).style.display = 'none';
+    document.getElementById('discEdit' + pk).style.display = 'block';
+}
+function switchToDiscView(pk) {
+    document.getElementById('discEdit' + pk).style.display = 'none';
+    document.getElementById('discView' + pk).style.display = 'block';
+}
+
+function addFileInput() {
+    var container = document.getElementById('fileInputsContainer');
+    var div = document.createElement('div');
+    div.style.marginBottom = '4px';
+    div.innerHTML = '<input type="file" name="attachments" class="form-control" style="font-size:12px;">';
+    container.appendChild(div);
+    document.getElementById('fileSubmitBtn').style.display = 'block';
+}
+
+/* Auto-save notes before ANY form submission that reloads the page */
+(function() {
+    function saveNotesThen(callback) {
+        var noteForm = document.getElementById('mainVisitForm');
+        if (noteForm) {
+            var formData = new FormData(noteForm);
+            fetch(noteForm.action, { method: 'POST', body: formData })
+                .then(callback).catch(callback);
+        } else {
+            callback();
+        }
+    }
+
+    // Intercept all modal forms + complete form + file upload form
+    document.querySelectorAll('.modal-backdrop form, form[action*="/complete/"], #fileUploadForm').forEach(function(form) {
+        form.addEventListener('submit', function(e) {
+            if (this.id === 'mainVisitForm') return;
+            e.preventDefault();
+            var self = this;
+            saveNotesThen(function() { self.submit(); });
+        });
+    });
+})();
+
+function validateProcedureForm(repsId) {
+    var repsInput = document.getElementById(repsId);
+    var val = repsInput.value.trim();
+    if (!val || isNaN(parseInt(val)) || parseInt(val) < 1) {
+        alert('Iltimos, seanslar sonini kiriting!');
+        repsInput.focus();
+        return false;
+    }
+    return true;
+}
+
+function openProcedureModal() {
+    document.getElementById('procReps').value = 1;
+    document.getElementById('procPrice').value = 0;
+    document.getElementById('procDesc').value = '';
+    document.getElementById('procTotal').textContent = '0';
+    generateDateFields();
+    openModal('procedureModal');
+}
+
+function updateTotalPrice() {
+    var price = parseInt(document.getElementById('procPrice').value) || 0;
+    var reps = parseInt(document.getElementById('procReps').value) || 1;
+    document.getElementById('procTotal').textContent = (price * reps).toLocaleString('uz-UZ');
+}
+
+function generateDateFields() {
+    var n = parseInt(document.getElementById('procReps').value) || 1;
+    var c = document.getElementById('dateFieldsContainer');
+    c.innerHTML = '';
+    for (var i = 1; i <= n; i++) {
+        c.innerHTML += '<div class="form-group"><label>Seans #' + i + ' sanasi</label><input type="date" name="date_' + i + '" class="form-control" required></div>';
+    }
+}
+
+function openEditProcedureModal(procId, desc, reps, pricePerSession) {
+    document.getElementById('editProcForm').action = '/doctor/{{ doctor.pk }}/procedure/' + procId + '/edit/';
+    document.getElementById('editProcDesc').value = desc;
+    document.getElementById('editProcReps').value = reps;
+    document.getElementById('editProcPrice').value = pricePerSession;
+    updateEditTotalPrice();
+    generateEditDateFields();
+    openModal('editProcedureModal');
+}
+
+function updateEditTotalPrice() {
+    var price = parseInt(document.getElementById('editProcPrice').value) || 0;
+    var reps = parseInt(document.getElementById('editProcReps').value) || 1;
+    document.getElementById('editProcTotal').textContent = (price * reps).toLocaleString('uz-UZ');
+}
+
+function generateEditDateFields() {
+    var n = parseInt(document.getElementById('editProcReps').value) || 1;
+    var c = document.getElementById('editDateFieldsContainer');
+    c.innerHTML = '';
+    for (var i = 1; i <= n; i++) {
+        c.innerHTML += '<div class="form-group"><label>Seans #' + i + ' sanasi</label><input type="date" name="date_' + i + '" class="form-control" required></div>';
+    }
+}
+
+function openEditRef(pk, od_s, od_c, od_a, os_s, os_c, os_a) {
+    document.getElementById('editRefForm').action = '/doctor/{{ doctor.pk }}/refraction/' + pk + '/edit/';
+    document.getElementById('editRefOdS').value = od_s;
+    document.getElementById('editRefOdC').value = od_c;
+    document.getElementById('editRefOdA').value = od_a;
+    document.getElementById('editRefOsS').value = os_s;
+    document.getElementById('editRefOsC').value = os_c;
+    document.getElementById('editRefOsA').value = os_a;
+    openModal('editRefModal');
+}
+
+function openEditKrt(pk, od_d, od_mm, od_a, os_d, os_mm, os_a) {
+    document.getElementById('editKrtForm').action = '/doctor/{{ doctor.pk }}/krt/' + pk + '/edit/';
+    document.getElementById('editKrtOdD').value = od_d;
+    document.getElementById('editKrtOdMm').value = od_mm;
+    document.getElementById('editKrtOdA').value = od_a;
+    document.getElementById('editKrtOsD').value = os_d;
+    document.getElementById('editKrtOsMm').value = os_mm;
+    document.getElementById('editKrtOsA').value = os_a;
+    openModal('editKrtModal');
+}
+
+function openEditIop(pk, od_value, os_value) {
+    document.getElementById('editIopForm').action = '/doctor/{{ doctor.pk }}/iop/' + pk + '/edit/';
+    document.getElementById('editIopOd').value = od_value;
+    document.getElementById('editIopOs').value = os_value;
+    openModal('editIopModal');
+}
+
+function openEditVa(pk, uos, uoc, uoa, uov, uoss, uosc, uosa, uosv, yos, yoc, yoa, yov, yoss, yosc, yosa, yosv, mos, moc, moa, mov, moss, mosc, mosa, mosv) {
+    document.getElementById('editVaForm').action = '/doctor/{{ doctor.pk }}/visual-acuity/' + pk + '/edit/';
+    document.getElementById('evaUzoqOdSph').value = uos;
+    document.getElementById('evaUzoqOdCyl').value = uoc;
+    document.getElementById('evaUzoqOdAx').value = uoa;
+    document.getElementById('evaUzoqOdVis').value = uov;
+    document.getElementById('evaUzoqOsSph').value = uoss;
+    document.getElementById('evaUzoqOsCyl').value = uosc;
+    document.getElementById('evaUzoqOsAx').value = uosa;
+    document.getElementById('evaUzoqOsVis').value = uosv;
+    document.getElementById('evaYaqinOdSph').value = yos;
+    document.getElementById('evaYaqinOdCyl').value = yoc;
+    document.getElementById('evaYaqinOdAx').value = yoa;
+    document.getElementById('evaYaqinOdVis').value = yov;
+    document.getElementById('evaYaqinOsSph').value = yoss;
+    document.getElementById('evaYaqinOsCyl').value = yosc;
+    document.getElementById('evaYaqinOsAx').value = yosa;
+    document.getElementById('evaYaqinOsVis').value = yosv;
+    document.getElementById('evaMklOdSph').value = mos;
+    document.getElementById('evaMklOdCyl').value = moc;
+    document.getElementById('evaMklOdAx').value = moa;
+    document.getElementById('evaMklOdVis').value = mov;
+    document.getElementById('evaMklOsSph').value = moss;
+    document.getElementById('evaMklOsCyl').value = mosc;
+    document.getElementById('evaMklOsAx').value = mosa;
+    document.getElementById('evaMklOsVis').value = mosv;
+    openModal('editVaModal');
+}
+
+document.querySelectorAll('.modal-backdrop').forEach(function(m) {
+    m.addEventListener('click', function(e) { if (e.target === m) m.classList.remove('active'); });
+});
+generateDateFields();
+</script>
+{% endif %}
+
+<script>
+/* These functions work with or without active visit */
+function updateAutoAge(input) {
+    var span = document.getElementById('autoAge');
+    if (!span) return;
+    if (input.value) {
+        var birth = new Date(input.value);
+        var today = new Date();
+        var age = today.getFullYear() - birth.getFullYear();
+        var m = today.getMonth() - birth.getMonth();
+        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+        span.textContent = '(' + age + ' yosh)';
+    } else {
+        span.textContent = '';
+    }
+}
+
+/* Edit visit from history */
+var visitDataCache = {{ visits_edit_json|safe|default:"{}" }};
+
+function openEditVisitModal(visitId) {
+    document.getElementById('editVisitForm').action = '/doctor/{{ doctor.pk }}/visit/' + visitId + '/edit-done/';
+    var d = visitDataCache[visitId] || {};
+    document.getElementById('ev_anamnesis_morbi').value = d.anamnesis_morbi || '';
+    document.getElementById('ev_operatsiyalar').value = d.operatsiyalar || '';
+    document.getElementById('ev_tomizilgan').value = d.tomizilgan || '';
+    document.getElementById('ev_koz_oynak_kontakt_linza').value = d.koz_oynak_kontakt_linza || '';
+    document.getElementById('ev_anamnesis_vitae').value = d.anamnesis_vitae || '';
+    document.getElementById('ev_allergiya').value = d.allergiya || '';
+    document.getElementById('ev_qovoqlar').value = d.qovoqlar || '';
+    document.getElementById('ev_koz_soqqasi').value = d.koz_soqqasi || '';
+    document.getElementById('ev_koz_olmasi').value = d.koz_olmasi || '';
+    document.getElementById('ev_sklera').value = d.sklera || '';
+    document.getElementById('ev_shox_parda').value = d.shox_parda || '';
+    document.getElementById('ev_old_kamera').value = d.old_kamera || '';
+    document.getElementById('ev_rangdor_parda').value = d.rangdor_parda || '';
+    document.getElementById('ev_gavhar').value = d.gavhar || '';
+    document.getElementById('ev_korish_otkirligi').value = d.korish_otkirligi || '';
+    document.getElementById('ev_shishasimon_tana').value = d.shishasimon_tana || '';
+    document.getElementById('ev_oftalmoskopiya').value = d.oftalmoskopiya || '';
+    document.getElementById('ev_tashxis').value = d.tashxis || '';
+    document.getElementById('ev_tavsiya').value = d.tavsiya || '';
+    document.getElementById('editVisitBackdrop').classList.add('active');
+}
+
+function closeEditVisitModal() {
+    document.getElementById('editVisitBackdrop').classList.remove('active');
+}
+</script>
+
+{% endblock %}

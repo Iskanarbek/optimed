@@ -1,0 +1,194 @@
+<style>
+.pof {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 14px; color: #000; line-height: 1.6;
+    max-width: 190mm; margin: 0 auto;
+}
+.pof-header { text-align: center; margin-bottom: 6px; }
+.pof-clinic { font-size: 15px; font-weight: bold; }
+.pof-addr { font-size: 12px; margin-top: 2px; }
+.pof-border { border-top: 2px solid #000; margin: 6px 0; }
+.pof-title { text-align: center; font-size: 19px; font-weight: bold; letter-spacing: 3px; margin: 7px 0; }
+.uz { font-size: 11px; color: #777; font-style: italic; }
+.pof-line { border-bottom: 1px solid #000; display: inline-block; min-width: 100px; }
+.pof-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 5px; flex-wrap: wrap; }
+.pof-lbl { font-weight: normal; }
+.pof-under { text-decoration: underline; }
+.pof-cb { display: inline-flex; align-items: center; gap: 3px; }
+.pof-box { display: inline-block; width:14px; height:14px; border:1.5px solid #000; text-align:center; line-height:12px; font-size:12px; font-weight:bold; }
+.pof-rec-block { margin-top: 6px; font-size: 14px; }
+.pof-sig { display: flex; justify-content: space-between; margin-top: 18px; font-size: 13px; }
+@media print {
+    @page { size: A4 portrait; margin: 8mm 10mm; }
+    .pof { max-width: 100%; }
+}
+</style>
+
+<div class="pof">
+    <!-- HEADER -->
+    <div class="pof-header">
+        <div class="pof-clinic">Клиника ООО «OPTIMED»</div>
+        <div class="pof-addr">г. Ташкент, Алмазарский р-н, ул. Зиё дом 7 А &nbsp;·&nbsp; +998(55) 511-60-60; +998(91) 166-62-22</div>
+    </div>
+    <div class="pof-border"></div>
+
+    <!-- TITLE -->
+    <div class="pof-title">ВЫПИСКА <span class="uz" style="font-size:11px;letter-spacing:0;font-weight:normal;">(Ko'chirma)</span></div>
+
+    <!-- HISTORY NUMBER -->
+    <div class="pof-row">
+        <span class="pof-lbl">Из истории болезни больного: <span class="uz">(Kasallik tarixidan)</span></span>
+        <span class="pof-line" style="min-width:80px;">{{ doc.protocol_number|default:"" }}</span>
+    </div>
+
+    <!-- TREATMENT DATES -->
+    <div class="pof-row">
+        <span class="pof-lbl">Получавшего в лечении с <span class="uz">(davolash boshlanishi)</span></span>
+        <span class="pof-line" style="min-width:70px;">{{ doc.davolash_boshlanishi|date:"d.m.Y"|default:"" }}</span>
+        <span>по <span class="uz">(gacha)</span></span>
+        <span class="pof-line" style="min-width:70px;">{{ doc.davolash_tugashi|date:"d.m.Y"|default:"" }}</span>
+    </div>
+
+    <!-- PATIENT -->
+    <div class="pof-row">
+        <span class="pof-lbl">Пациент <span class="uz">(Bemor)</span>:</span>
+        <span class="pof-line" style="min-width:180px;flex:1;">{{ doc.patient.surname }} {{ doc.patient.name }}</span>
+        <span class="pof-lbl">Д.р.:</span>
+        <span class="pof-line" style="min-width:80px;">{{ doc.patient.birth_date|date:"d.m.Y"|default:"" }}</span>
+    </div>
+
+    <!-- DIAGNOSIS -->
+    <div style="margin-bottom:3px;">
+        <span class="pof-lbl">С диагнозом: <span class="uz">(Tashxis bilan)</span> OD/OS</span>
+        <span class="pof-line" style="min-width:200px;display:block;margin-top:1px;">{{ doc.asosiy_tashxis|default:"" }}</span>
+        <span class="pof-line" style="min-width:100%;display:block;margin-top:4px;">{{ doc.qoshimcha_tashxis|default:"&nbsp;" }}</span>
+    </div>
+
+    <!-- COMORBIDITY -->
+    <div class="pof-row">
+        <span class="pof-lbl">Сопутствующее: <span class="uz">(Hamroh kasallik)</span> OD/OS</span>
+        <span class="pof-line" style="min-width:180px;flex:1;">{{ doc.hamroh_kasallik|default:"" }}</span>
+    </div>
+
+    <!-- ADMISSION VISION -->
+    <div class="pof-row" style="margin-top:4px;">
+        <span class="pof-lbl">При поступлении: <span class="uz">(Qabulda)</span> Visus = OD/OS</span>
+        <span class="pof-line" style="min-width:50px;">{{ doc.qabulda_vis_od|default:"" }}</span>
+        /
+        <span class="pof-line" style="min-width:50px;">{{ doc.qabulda_vis_os|default:"" }}</span>
+        <span style="margin-left:6px;">с/к <span class="uz">(k/s)</span></span>
+    </div>
+    <div class="pof-row">
+        OD/OS
+        <span class="pof-line" style="min-width:100px;">{{ doc.qabulda_od|default:"" }}</span>
+        /
+        <span class="pof-line" style="min-width:100px;">{{ doc.qabulda_os|default:"" }}</span>
+    </div>
+
+    <!-- FEATURES AT ADMISSION -->
+    <div class="pof-row">
+        <span class="pof-lbl">Особенности: <span class="uz">(Xususiyatlar)</span></span>
+        <span class="pof-line" style="min-width:200px;flex:1;">{{ doc.xususiyatlar|default:"" }}</span>
+    </div>
+
+    <!-- OPERATION PERFORMED -->
+    <div style="margin-bottom:3px;">
+        <span class="pof-lbl">Произведена операция: <span class="uz">(Operatsiya amalga oshirildi)</span> OD/OS</span>
+        <span class="pof-line" style="display:block;margin-top:1px;min-height:14px;">{{ doc.operatsiya|default:"" }}</span>
+        <span class="pof-line" style="display:block;margin-top:4px;min-height:14px;">&nbsp;</span>
+    </div>
+
+    <!-- ANESTHESIA -->
+    <div class="pof-row" style="margin-top:4px;">
+        <span class="pof-lbl">Операция произведена под: <span class="uz">(narkoz turi)</span></span>
+        <span class="pof-cb">
+            <span class="pof-box">{% if doc.narkoz_turi == 'vv' or doc.narkoz_turi == 'В/в' %}✓{% endif %}</span> в/в наркозом
+        </span>
+        &nbsp;/&nbsp;
+        <span class="pof-cb">
+            <span class="pof-box">{% if doc.narkoz_turi == 'mestnaya' or doc.narkoz_turi == 'местная' %}✓{% endif %}</span> местной анестезией
+        </span>
+    </div>
+    <div style="margin-bottom:3px;font-weight:bold;">
+        Операция прошла без осложнений <span class="uz" style="font-weight:normal;">(Operatsiya asaratsiz o'tdi)</span>
+    </div>
+
+    <!-- SURGEON + DATE -->
+    <div class="pof-row">
+        <span class="pof-lbl">Хирург <span class="uz">(Hirurg)</span>:</span>
+        <span class="pof-line" style="min-width:140px;">{{ doc.hirurg|default:"" }}</span>
+        <span style="margin-left:12px;">
+            <span class="pof-line" style="min-width:20px;">{{ doc.operatsiya_sanasi|date:"d"|default:"&nbsp;&nbsp;" }}</span>
+            /
+            <span class="pof-line" style="min-width:20px;">{{ doc.operatsiya_sanasi|date:"m"|default:"&nbsp;&nbsp;" }}</span>
+            /
+            <span class="pof-line" style="min-width:30px;">{{ doc.operatsiya_sanasi|date:"Y"|default:"&nbsp;&nbsp;&nbsp;&nbsp;" }}</span>
+            г.
+        </span>
+    </div>
+
+    <!-- DISCHARGE VISION -->
+    <div class="pof-row" style="margin-top:4px;">
+        <span class="pof-lbl">При выписке: <span class="uz">(Chiqimda)</span> Visus = OD/OS</span>
+        <span class="pof-line" style="min-width:50px;">{{ doc.chiqimda_vis_od|default:"" }}</span>
+        /
+        <span class="pof-line" style="min-width:50px;">{{ doc.chiqimda_vis_os|default:"" }}</span>
+        :
+    </div>
+    <div class="pof-row">
+        OD/OS =
+        <span class="pof-line" style="min-width:100px;">{{ doc.chiqimda_od|default:"" }}</span>
+        /
+        <span class="pof-line" style="min-width:100px;">{{ doc.chiqimda_os|default:"" }}</span>
+    </div>
+
+    <!-- DISCHARGE FEATURES -->
+    <div class="pof-row">
+        <span class="pof-lbl">Особенность: <span class="uz">(Xususiyat)</span></span>
+        <span class="pof-line" style="min-width:200px;flex:1;">{{ doc.xususiyat_chiqim|default:"" }}</span>
+    </div>
+    <div class="pof-line" style="width:100%;margin:3px 0;">&nbsp;</div>
+
+    <!-- RECOMMENDATIONS -->
+    <div class="pof-rec-block">
+        <div style="font-weight:bold;">Рекомендовано: <span class="uz" style="font-weight:normal;">(Tavsiya qilinadi)</span></div>
+        {% if doc.tavsiya %}
+        <div style="white-space:pre-line;margin-top:2px;">{{ doc.tavsiya }}</div>
+        {% else %}
+        <div>Местный <span class="uz">(mahalliy)</span>: антибиотик (10дн.), НПВС (1 месяц), ГКС по схеме, кератопротектор.</div>
+        <div>Общий <span class="uz">(umumiy)</span>: антибиотик/витамины по показаниям.</div>
+        {% endif %}
+    </div>
+    <div class="pof-line" style="width:100%;margin:4px 0;">&nbsp;</div>
+
+    <!-- FOLLOW-UP -->
+    <div class="pof-row">
+        <span class="pof-lbl">Повторный осмотр через <span class="uz">(Keyingi ko'ruv)</span>:</span>
+        <span class="pof-line" style="min-width:140px;">{{ doc.keyingi_qayta_korish|default:"" }}</span>
+    </div>
+
+    <!-- PATIENT REMINDER -->
+    <div style="margin-top:10px;font-weight:bold;font-size:14px;">Bemorlarga eslatma <span class="uz" style="font-weight:normal;">(Памятка пациента)</span>:</div>
+    {% if doc.bemor_eslatma %}
+    <div style="white-space:pre-line;font-size:14px;margin-top:3px;">{{ doc.bemor_eslatma }}</div>
+    {% if doc.bemor_eslatma_ru %}
+    <div style="white-space:pre-line;font-size:14px;border-left:2px solid #aaa;padding-left:8px;margin-top:4px;color:#222;">{{ doc.bemor_eslatma_ru }}</div>
+    {% endif %}
+    {% else %}
+    <div style="border-bottom:1px solid #000;min-height:40px;margin:3px 0;">&nbsp;</div>
+    <div style="border-bottom:1px solid #000;min-height:40px;margin:3px 0;">&nbsp;</div>
+    <div style="border-bottom:1px solid #000;min-height:40px;margin:3px 0;">&nbsp;</div>
+    <div style="border-bottom:1px solid #000;min-height:40px;margin:3px 0;">&nbsp;</div>
+    {% endif %}
+
+    <!-- SIGNATURE -->
+    <div class="pof-sig">
+        <span>Леч.врач <span class="uz">(Lech.vrach)</span>: _________________________ {{ doc.lech_vrach|default:"" }}</span>
+        <span>
+            <span class="pof-line" style="min-width:18px;">{{ doc.created_at|date:"d" }}</span>
+            /
+            <span class="pof-line" style="min-width:18px;">{{ doc.created_at|date:"m" }}</span>
+            &nbsp; 20<span class="pof-line" style="min-width:22px;">{{ doc.created_at|date:"y" }}</span> г.
+        </span>
+    </div>
+</div>

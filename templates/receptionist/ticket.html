@@ -1,0 +1,110 @@
+{% load clinic_filters %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <title>Navbat chiptasi</title>
+    <style>
+        @media print { .no-print { display: none !important; } body { margin: 0; } }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; max-width: 350px; margin: 40px auto; padding: 20px; }
+        .ticket { border: 2px solid #1a1a2e; border-radius: 12px; padding: 24px; text-align: center; }
+        .ticket-logo { font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #1a1a2e; }
+        .ticket-sub { font-size: 11px; color: #718096; letter-spacing: 3px; text-transform: uppercase; margin-top: 4px; }
+        .queue-number { font-size: 64px; font-weight: 900; color: #1a1a2e; margin: 20px 0; line-height: 1; }
+        .ticket-divider { border-top: 2px dashed #e2e8f0; margin: 16px 0; }
+        .ticket-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; }
+        .ticket-label { color: #718096; }
+        .ticket-value { font-weight: 600; color: #1a1a2e; }
+        .ticket-services { text-align: left; margin-top: 12px; }
+        .ticket-services h4 { font-size: 11px; text-transform: uppercase; color: #718096; letter-spacing: 1px; margin-bottom: 6px; }
+        .ticket-svc { font-size: 13px; padding: 4px 0; display: flex; justify-content: space-between; }
+        .ticket-total { font-size: 16px; font-weight: 700; border-top: 2px solid #1a1a2e; margin-top: 12px; padding-top: 12px; display: flex; justify-content: space-between; }
+        .ticket-date { font-size: 11px; color: #718096; margin-top: 16px; }
+        .btn-row { display: flex; gap: 12px; margin-top: 24px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; }
+        .btn-dark { background: #1a1a2e; color: #fff; }
+        .btn-light { background: #e2e8f0; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="ticket">
+        <div class="ticket-logo">OPTIMED</div>
+        <div class="ticket-sub">Ko'z shifoxonasi</div>
+
+        <div class="queue-number">#{{ queue.number|default:"—" }}</div>
+
+        <div class="ticket-divider"></div>
+
+        <div class="ticket-row">
+            <span class="ticket-label">Xona:</span>
+            <span class="ticket-value">{{ visit.doctor.room_number|default:"—" }}</span>
+        </div>
+        <div class="ticket-row">
+            <span class="ticket-label">Doktor:</span>
+            <span class="ticket-value">{% if visit.doctor %}Dr. {{ visit.doctor.full_name }}{% else %}—{% endif %}</span>
+        </div>
+        <div class="ticket-row">
+            <span class="ticket-label">Bemor:</span>
+            <span class="ticket-value">{{ visit.patient.full_name }}</span>
+        </div>
+        {% if visit.referred_by %}
+        <div class="ticket-row">
+            <span class="ticket-label">Yo'naltiruvchi:</span>
+            <span class="ticket-value">{{ visit.referred_by.full_name }}</span>
+        </div>
+        {% endif %}
+
+        <div class="ticket-divider"></div>
+
+        {% if services %}
+        <div class="ticket-services">
+            <h4>Xizmatlar</h4>
+            {% for vs in services %}
+            <div class="ticket-svc">
+                <span>{{ vs.service.name }}</span>
+                <span>{{ vs.price_at_time|format_som }} so'm</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if procedures %}
+        <div class="ticket-services">
+            <h4>Protseduralar</h4>
+            {% for proc in procedures %}
+            <div class="ticket-svc">
+                <span>{{ proc.description|truncatewords:8 }}</span>
+                <span>{{ proc.total_price|format_som }} so'm</span>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if not services and not procedures %}
+        <div class="ticket-services">
+            <div class="ticket-svc"><span>—</span></div>
+        </div>
+        {% endif %}
+
+        {% if visit.discount_amount > 0 %}
+        <div class="ticket-svc" style="color:#e53e3e;">
+            <span>Chegirma</span>
+            <span>-{{ visit.discount_amount|format_som }} so'm</span>
+        </div>
+        {% endif %}
+
+        <div class="ticket-total">
+            <span>JAMI:</span>
+            <span>{{ visit.final_price|format_som }} so'm</span>
+        </div>
+
+        <div class="ticket-date">{{ visit.created_at|date:"d.m.Y H:i" }}</div>
+    </div>
+
+    <div class="btn-row no-print">
+        <button class="btn btn-dark" onclick="window.print()">Chop etish</button>
+        <a href="{% url 'receptionist_panel' %}" class="btn btn-light">Ortga</a>
+    </div>
+</body>
+</html>

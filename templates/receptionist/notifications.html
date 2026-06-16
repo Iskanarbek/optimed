@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Bildirishnomalar — Optimed CRM{% endblock %}
+{% block nav_notifications %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Bildirishnomalar</h1>
+        <p>Baholar uchun qo'ng'iroq qilish kerak bo'lgan bemorlar</p>
+    </div>
+    <span class="counter">{{ visits.count }}</span>
+</div>
+
+<div class="card">
+    {% for visit in visits %}
+    <div class="notification-item">
+        <div class="patient-info">
+            <div class="patient-avatar">{{ visit.patient.name|first }}{{ visit.patient.surname|first }}</div>
+            <div>
+                <div class="patient-name">{{ visit.patient.full_name }}</div>
+                <div class="patient-phone">{{ visit.patient.phone }}</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                    Dr. {% if visit.doctor %}{{ visit.doctor.full_name }}{% else %}O'chirilgan doktor{% endif %} &middot; {{ visit|visit_service_names }}
+                </div>
+            </div>
+        </div>
+        <form method="post" action="{% url 'rate_visit' visit.pk %}" style="display:flex;align-items:center;gap:16px;">
+            {% csrf_token %}
+            <div style="text-align:center;">
+                <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Doktor bahosi</label>
+                <div class="star-input" id="doctorStars{{ visit.pk }}">
+                    {% for i in "1234567890" %}
+                    {% with star_num=forloop.counter %}
+                    <label onclick="setRating('doctor', {{ visit.pk }}, {{ star_num }})" id="dstar{{ visit.pk }}_{{ star_num }}" style="font-size:18px;cursor:pointer;color:#e2e8f0;">&#9733;</label>
+                    {% endwith %}
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="doctor_rating" id="doctorRating{{ visit.pk }}" value="0">
+            </div>
+            <div style="text-align:center;">
+                <label style="font-size:11px;color:var(--text-muted);display:block;margin-bottom:4px;">Klinika bahosi</label>
+                <div class="star-input" id="clinicStars{{ visit.pk }}">
+                    {% for i in "1234567890" %}
+                    {% with star_num=forloop.counter %}
+                    <label onclick="setRating('clinic', {{ visit.pk }}, {{ star_num }})" id="cstar{{ visit.pk }}_{{ star_num }}" style="font-size:18px;cursor:pointer;color:#e2e8f0;">&#9733;</label>
+                    {% endwith %}
+                    {% endfor %}
+                </div>
+                <input type="hidden" name="clinic_rating" id="clinicRating{{ visit.pk }}" value="0">
+            </div>
+            <button type="submit" class="btn btn-success btn-sm">Yuborish</button>
+        </form>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <p>Kutilayotgan qo'ng'iroqlar yo'q</p>
+    </div>
+    {% endfor %}
+</div>
+
+<script>
+function setRating(type, visitId, rating) {
+    const prefix = type === 'doctor' ? 'dstar' : 'cstar';
+    const inputId = type === 'doctor' ? 'doctorRating' : 'clinicRating';
+    document.getElementById(inputId + visitId).value = rating;
+    for (let i = 1; i <= 10; i++) {
+        const el = document.getElementById(prefix + visitId + '_' + i);
+        if (el) el.style.color = i <= rating ? '#d69e2e' : '#e2e8f0';
+    }
+}
+</script>
+{% endblock %}

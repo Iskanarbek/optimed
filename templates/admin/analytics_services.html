@@ -1,0 +1,98 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Xizmatlar tahlili — Optimed CRM{% endblock %}
+{% block nav_analytics_services %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Xizmatlar tahlili</h1>
+        <p>Foydalanish va daromad xizmatlar bo'yicha</p>
+    </div>
+    <div class="period-filter">
+        <a href="?period=week" class="period-btn {% if period == 'week' %}active{% endif %}">Hafta</a>
+        <a href="?period=month" class="period-btn {% if period == 'month' %}active{% endif %}">Oy</a>
+        <a href="?period=year" class="period-btn {% if period == 'year' %}active{% endif %}">Yil</a>
+        <a href="?period=all" class="period-btn {% if period == 'all' %}active{% endif %}">Hammasi</a>
+    </div>
+</div>
+
+<div class="card animate-in" style="margin-bottom:24px;">
+    <div class="card-header"><h3>Xizmatlar bo'yicha daromad</h3></div>
+    <div class="chart-container" style="height:400px;">
+        <canvas id="revenueChart"></canvas>
+    </div>
+</div>
+
+<div class="card animate-in">
+    <div class="card-header"><h3>Xizmatlar tafsiloti</h3></div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Xizmat</th>
+                    <th>Foydalanish soni</th>
+                    <th>Daromad</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for s in service_data %}
+                <tr>
+                    <td><strong>{{ s.name }}</strong></td>
+                    <td>{{ s.count }}</td>
+                    <td><strong>{{ s.revenue|format_som }} so'm</strong></td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="3" class="empty-state"><p>Ma'lumotlar mavjud emas</p></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var colors = ['#1a1a2e', '#e74c3c', '#2ecc71', '#f39c12', '#3498db', '#9b59b6', '#1abc9c', '#e67e22'];
+
+    // Services chart
+    var data = {{ service_data_json|safe }};
+    var labels = data.map(function(d) { return d.name; });
+    var revenues = data.map(function(d) { return d.revenue; });
+
+    new Chart(document.getElementById('revenueChart'), {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: "Daromad (so'm)",
+                data: revenues,
+                backgroundColor: colors.slice(0, labels.length),
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: 'y',
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    beginAtZero: true,
+                    grid: { color: '#f0f0f0' },
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString('uz-UZ');
+                        }
+                    }
+                },
+                y: { grid: { display: false } }
+            },
+            animation: { duration: 1200, easing: 'easeOutQuart' }
+        }
+    });
+
+});
+</script>
+{% endblock %}

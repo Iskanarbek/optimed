@@ -1,0 +1,286 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}{{ patient.full_name }} — Tashrif{% endblock %}
+{% block nav_doctor %}active{% endblock %}
+
+{% block content %}
+<div class="detail-header">
+    <a href="{% url 'doctor_panel' doctor.pk %}" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Panelga qaytish
+    </a>
+</div>
+
+<div class="page-header">
+    <div>
+        <h1>{{ patient.full_name }}</h1>
+        <p>{{ visit|visit_service_names }} &middot; {{ visit.created_at|date:"d.m.Y H:i" }}
+            {% if visit.status == 'done' %}<span class="badge badge-success" style="margin-left:8px;">Tugatildi</span>{% endif %}
+            {% if visit.status == 'has_procedure' %}<span class="badge badge-warning" style="margin-left:8px;">Protsedurasi bor</span>{% endif %}
+            {% if visit.status == 'waiting' %}<span class="badge badge-info" style="margin-left:8px;">Kutmoqda</span>{% endif %}
+            {% if visit.status == 'in_progress' %}<span class="badge badge-info" style="margin-left:8px;">Qabulda</span>{% endif %}
+        </p>
+    </div>
+    {% if visit.status == 'waiting' or visit.status == 'in_progress' %}
+    <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" onclick="openProcedureModal()">+ Protsedura</button>
+        <form method="post" action="{% url 'doctor_complete_visit' doctor.pk visit.pk %}">
+            {% csrf_token %}
+            <button class="btn btn-success">Tugatish</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+
+<div class="detail-grid">
+    <!-- BEMOR MA'LUMOTLARI -->
+    <div class="card animate-in">
+        <div class="card-header"><h3>Bemor ma'lumotlari</h3></div>
+        <form method="post" action="{% url 'doctor_update_visit' doctor.pk visit.pk %}" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Jinsi</label>
+                    <select name="gender" class="form-control">
+                        <option value="">—</option>
+                        <option value="erkak" {% if patient.gender == 'erkak' %}selected{% endif %}>Erkak</option>
+                        <option value="ayol" {% if patient.gender == 'ayol' %}selected{% endif %}>Ayol</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Yoshi</label>
+                    <input type="number" name="age" class="form-control" value="{{ patient.age|default:'' }}">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Tug'ilgan sana</label>
+                <input type="date" name="birth_date" class="form-control" value="{{ patient.birth_date|date:'Y-m-d' }}">
+            </div>
+            <div class="form-group">
+                <label>Manzil</label>
+                <input type="text" name="address" class="form-control" value="{{ patient.address }}" placeholder="Shahar, ko'cha...">
+            </div>
+            <div class="form-group">
+                <label>Telefon</label>
+                <input type="text" class="form-control" value="{{ patient.phone }}" disabled>
+            </div>
+
+            <div style="border-top:1px solid var(--border);margin:20px 0;padding-top:20px;">
+                <h4 style="font-size:14px;font-weight:600;margin-bottom:16px;">Tibbiy yozuv</h4>
+                <div class="form-group">
+                    <label>Muammo / Shikoyat</label>
+                    <textarea name="problem" class="form-control" rows="4" placeholder="Bemor muammosini tavsiflang...">{{ visit.problem }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Yechim / Retsept</label>
+                    <textarea name="solution" class="form-control" rows="4" placeholder="Davolash rejasi, dorilar, operatsiya...">{{ visit.solution }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Qo'shimcha izohlar</label>
+                    <textarea name="notes" class="form-control" rows="2">{{ visit.notes }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label>Fayl biriktirish (PDF, rasm va h.k.)</label>
+                    <input type="file" name="attachment" class="form-control">
+                    {% if visit.attachment %}
+                    <a href="{{ visit.attachment.url }}" target="_blank" style="font-size:12px;color:var(--accent);margin-top:4px;display:inline-block;">
+                        Hozirgi biriktirma: {{ visit.attachment.name }}
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;">Saqlash</button>
+        </form>
+    </div>
+
+    <!-- TASHRIF VA PROTSEDURALAR -->
+    <div>
+        <!-- Tashrif xulosasi -->
+        <div class="card animate-in">
+            <div class="card-header"><h3>Tashrif xulosasi</h3></div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+                <div>
+                    <div class="stat-label">Xizmat</div>
+                    <div style="font-weight:600;">{{ visit|visit_service_names }}</div>
+                </div>
+                <div>
+                    <div class="stat-label">Narx</div>
+                    <div style="font-weight:600;">{{ visit.total_services_price|format_som }} so'm</div>
+                </div>
+                <div>
+                    <div class="stat-label">Chegirma</div>
+                    <div style="font-weight:600;">
+                        {% if visit.discount_amount > 0 %}
+                        <span class="discount-tag">-{{ visit.discount_amount|format_som }} so'm</span>
+                        {% if visit.discount_reason %}<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">{{ visit.discount_reason }}</span>{% endif %}
+                        {% else %}0 so'm{% endif %}
+                    </div>
+                </div>
+                <div>
+                    <div class="stat-label">Yakuniy narx</div>
+                    <div style="font-weight:700;font-size:18px;color:var(--success);">{{ visit.final_price|format_som }} so'm</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Protseduralar -->
+        <div class="card animate-in">
+            <div class="card-header">
+                <h3>Protseduralar</h3>
+                {% if visit.status == 'waiting' or visit.status == 'in_progress' or visit.status == 'has_procedure' %}
+                <button class="btn btn-secondary btn-sm" onclick="openProcedureModal()">+ Qo'shish</button>
+                {% endif %}
+            </div>
+
+            {% for proc in procedures %}
+            <div class="procedure-card">
+                <div style="display:flex;justify-content:space-between;align-items:start;">
+                    <div>
+                        <div style="font-weight:600;font-size:14px;margin-bottom:4px;">{{ proc.description|truncatewords:20 }}</div>
+                        <div style="font-size:12px;color:var(--text-muted);">{{ proc.total_repetitions }} ta takrorlanish &middot; {{ proc.progress_text }}</div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="openEditProcedureModal({{ proc.pk }}, '{{ proc.description|escapejs }}', {{ proc.total_repetitions }})">Tahrirlash</button>
+                </div>
+                <div class="procedure-dates">
+                    {% for pd in proc.dates.all %}
+                    <div class="procedure-date {% if pd.completed %}completed{% endif %}">
+                        {{ pd.scheduled_date|date:"d.m.Y" }}
+                        {% if pd.completed %}
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M20 6L9 17l-5-5"/></svg>
+                        {% else %}
+                            <form method="post" action="{% url 'doctor_complete_procedure_date' doctor.pk pd.pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <button style="background:none;border:none;cursor:pointer;padding:0;" title="Bajarildi">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="empty-state" style="padding:30px;"><p>Protseduralar tayinlanmagan</p></div>
+            {% endfor %}
+        </div>
+
+        <!-- BEMOR TARIXI -->
+        {% if all_visits|length > 1 %}
+        <div class="history-section">
+            <div class="history-title">Bemor tarixi ({{ all_visits|length }} ta tashrif)</div>
+            {% for hv in all_visits %}
+            {% if hv.pk != visit.pk %}
+            <div class="history-item">
+                <div class="history-item-date">{{ hv.created_at|date:"d.m.Y H:i" }}</div>
+                <div class="history-item-service">{{ hv|visit_service_names }}</div>
+                <div class="history-item-doctor">Dr. {{ hv.doctor.full_name }}</div>
+                {% if hv.problem %}
+                <div class="history-item-content">
+                    <strong>Muammo</strong>
+                    {{ hv.problem|truncatewords:30 }}
+                </div>
+                {% endif %}
+                {% if hv.solution %}
+                <div class="history-item-content">
+                    <strong>Yechim</strong>
+                    {{ hv.solution|truncatewords:30 }}
+                </div>
+                {% endif %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- PROTSEDURA QO'SHISH MODALI -->
+<div class="modal-backdrop" id="procedureModal">
+    <div class="modal">
+        <h3>Protsedura qo'shish</h3>
+        <form method="post" action="{% url 'doctor_add_procedure' doctor.pk visit.pk %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Tavsif</label>
+                <textarea name="procedure_description" class="form-control" required placeholder="Bemor nima qilishi kerak..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Takrorlanishlar soni</label>
+                <input type="number" name="repetitions" id="procReps" class="form-control" min="1" value="1" onchange="generateDateFields()">
+            </div>
+            <div id="dateFieldsContainer"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('procedureModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Qo'shish</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- PROTSEDURA TAHRIRLASH MODALI -->
+<div class="modal-backdrop" id="editProcedureModal">
+    <div class="modal">
+        <h3>Protsedura tahrirlash</h3>
+        <form method="post" id="editProcedureForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Tavsif</label>
+                <textarea name="procedure_description" id="editProcDesc" class="form-control" required></textarea>
+            </div>
+            <div class="form-group">
+                <label>Takrorlanishlar soni</label>
+                <input type="number" name="repetitions" id="editProcReps" class="form-control" min="1" value="1" onchange="generateEditDateFields()">
+            </div>
+            <div id="editDateFieldsContainer"></div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editProcedureModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function openProcedureModal() {
+    document.getElementById('procReps').value = 1;
+    generateDateFields();
+    openModal('procedureModal');
+}
+
+function generateDateFields() {
+    var n = parseInt(document.getElementById('procReps').value) || 1;
+    var c = document.getElementById('dateFieldsContainer');
+    c.innerHTML = '';
+    for (var i = 1; i <= n; i++) {
+        c.innerHTML += '<div class="form-group"><label>Tashrif #' + i + ' sanasi</label><input type="date" name="date_' + i + '" class="form-control" required></div>';
+    }
+}
+
+function openEditProcedureModal(procId, desc, reps) {
+    document.getElementById('editProcedureForm').action = '/doctor/{{ doctor.pk }}/procedure/' + procId + '/edit/';
+    document.getElementById('editProcDesc').value = desc;
+    document.getElementById('editProcReps').value = reps;
+    generateEditDateFields();
+    openModal('editProcedureModal');
+}
+
+function generateEditDateFields() {
+    var n = parseInt(document.getElementById('editProcReps').value) || 1;
+    var c = document.getElementById('editDateFieldsContainer');
+    c.innerHTML = '';
+    for (var i = 1; i <= n; i++) {
+        c.innerHTML += '<div class="form-group"><label>Tashrif #' + i + ' sanasi</label><input type="date" name="date_' + i + '" class="form-control" required></div>';
+    }
+}
+
+document.querySelectorAll('.modal-backdrop').forEach(function(m) {
+    m.addEventListener('click', function(e) { if (e.target === m) m.classList.remove('active'); });
+});
+
+generateDateFields();
+</script>
+{% endblock %}

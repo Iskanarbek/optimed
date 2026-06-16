@@ -1,0 +1,204 @@
+{% load clinic_filters %}
+<style>
+.lf {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 14px;
+    color: #000;
+    line-height: 1.6;
+    max-width: 190mm;
+    margin: 0 auto;
+}
+.lf-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 8px;
+    border-bottom: 2px solid #000;
+    padding-bottom: 8px;
+}
+.lf-logo-block { display: flex; align-items: center; gap: 8px; }
+.lf-logo-circle {
+    width: 52px; height: 52px; border-radius: 50%;
+    border: 3px solid #c00; display: flex; align-items: center; justify-content: center;
+    font-size: 9px; font-weight: bold; color: #c00; text-align: center; line-height: 1.1;
+    flex-shrink: 0;
+}
+.lf-clinic-name { font-size: 15px; font-weight: bold; text-align: right; }
+.lf-addr { font-size: 11px; text-align: right; line-height: 1.4; margin-top: 2px; }
+.lf-title-line {
+    text-align: center; font-size: 13px; margin: 6px 0;
+    font-style: italic;
+}
+.uz { font-size: 11px; color: #555; font-style: italic; }
+.field-line {
+    border-bottom: 1px solid #000;
+    display: inline-block;
+    min-width: 120px;
+}
+.lf-row { display: flex; align-items: baseline; gap: 8px; margin-bottom: 7px; flex-wrap: wrap; }
+.lf-block { margin-bottom: 7px; }
+.lf-label { font-weight: bold; }
+.cb-group { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 6px 0; }
+.cb-item { display: inline-flex; align-items: center; gap: 4px; font-size: 14px; }
+.cb-box {
+    display: inline-block; width: 15px; height: 15px;
+    border: 1.5px solid #000; text-align: center; line-height: 13px;
+    font-size: 13px; flex-shrink: 0; font-weight: bold;
+}
+.lf-section-title { font-weight: bold; font-size: 14px; margin: 10px 0 5px; text-decoration: underline; }
+.vis-table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+.vis-table td { padding: 4px 6px; font-size: 14px; vertical-align: bottom; }
+.holat-box {
+    border: 1.5px solid #000; padding: 10px 14px; margin: 10px 0;
+    font-size: 14px; min-height: 40px;
+}
+.rec-block { margin-top: 10px; font-size: 14px; }
+.rec-block .rec-title { font-weight: bold; }
+.sig-line { display: flex; justify-content: space-between; margin-top: 20px; font-size: 13px; }
+@media print {
+    @page { size: A4 portrait; margin: 8mm 10mm; }
+    .lf { max-width: 100%; }
+}
+</style>
+
+<div class="lf">
+    <!-- HEADER -->
+    <div class="lf-header">
+        <div class="lf-logo-block">
+            <div class="lf-logo-circle">OPT<br>IMED</div>
+            <div>
+                <div style="font-size:18px;font-weight:bold;color:#c00;">OPTIMED</div>
+                <div style="font-size:11px;color:#666;">Глазная клиника</div>
+            </div>
+        </div>
+        <div>
+            <div class="lf-clinic-name">Глазная Клиника «OPTIMED»</div>
+            <div class="lf-addr">
+                ТАШКЕНТ ШАХАР ОЛМАЗОР ТУМАНИ ЗНЕ 24 А<br>
+                +998 98 199 60 60 &nbsp; +998 55 511 60 60
+            </div>
+        </div>
+    </div>
+
+    <!-- TITLE -->
+    <div class="lf-title-line">
+        Выписка из амбулаторной карты для операционного больного №
+        <span class="field-line" style="min-width:70px;">{{ doc.protocol_number|default:"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" }}</span>
+        &nbsp;<span class="uz">(Амбулатор карта рақами)</span>
+    </div>
+
+    <!-- PATIENT -->
+    <div class="lf-row" style="margin-top:8px;">
+        <span class="lf-label">Ф.И.О. <span class="uz">(Ф.И.Ш.)</span>:</span>
+        <span class="field-line" style="min-width:220px;flex:1;">{{ doc.patient.surname }} {{ doc.patient.name }}</span>
+        <span class="lf-label" style="margin-left:14px;">Дата рождения <span class="uz">(T.s.)</span>:</span>
+        <span class="field-line" style="min-width:90px;">{{ doc.patient.birth_date|date:"d / m / Y"|default:"&nbsp;&nbsp;/&nbsp;&nbsp;/&nbsp;&nbsp;&nbsp;&nbsp;" }}</span>
+    </div>
+
+    <!-- DIAGNOSIS -->
+    <div class="lf-block">
+        <span class="lf-label">Диагноз <span class="uz">(Tashxis)</span>:</span>
+        <div style="border-bottom:1px solid #000;min-height:22px;margin-top:3px;">{{ doc.tashxis|default:"" }}</div>
+        <div style="border-bottom:1px solid #000;min-height:22px;margin-top:6px;">&nbsp;</div>
+    </div>
+
+    <!-- OPERATION TYPE -->
+    <div class="lf-block" style="margin-top:9px;">
+        <span class="lf-label">Операция <span class="uz">(Operatsiya)</span>:</span>
+        <div class="cb-group" style="margin-top:5px;">
+            {% with t=doc.operatsiya_turi %}
+            <span class="cb-item"><span class="cb-box">{% if t == 'LASIK' %}✓{% endif %}</span> LASIK TENEO 317</span>
+            <span class="cb-item"><span class="cb-box">{% if t == 'LASEK' %}✓{% endif %}</span> LASEK</span>
+            <span class="cb-item"><span class="cb-box">{% if t == 'TENEO317' %}✓{% endif %}</span> TENEO 317 PRK</span>
+            <span class="cb-item"><span class="cb-box">{% if t == 'PRK' %}✓{% endif %}</span> PRK</span>
+            <span class="cb-item"><span class="cb-box">{% if t == 'RTK' %}✓{% endif %}</span> РТК</span>
+            <span class="cb-item"><span class="cb-box">{% if t == 'DOKORREKSIYA' %}✓{% endif %}</span> доКоррекция</span>
+            {% endwith %}
+        </div>
+    </div>
+
+    <!-- OD / OS + OCTAVIUS -->
+    <div class="lf-row" style="margin-top:6px;">
+        {% with e=doc.ko_z %}
+        <span class="cb-item"><span class="cb-box">{% if e == 'OD' or e == 'OU' %}✓{% endif %}</span> OD</span>
+        <span class="cb-item"><span class="cb-box">{% if e == 'OS' or e == 'OU' %}✓{% endif %}</span> OS</span>
+        {% endwith %}
+        <span style="margin-left:20px;">
+            <span class="cb-item"><span class="cb-box">{% if doc.octavius %}✓{% endif %}</span> LASIK TENEO 317 OCTAVIUS</span>
+        </span>
+    </div>
+
+    <!-- SURGERY INFO -->
+    <div class="lf-row" style="margin-top:8px;">
+        <span><span class="lf-label">Дата операции <span class="uz">(Sana)</span>:</span>
+        <span class="field-line" style="min-width:100px;">{{ doc.operatsiya_sanasi|date:"d.m.Y"|default:"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" }}</span></span>
+        <span style="margin-left:14px;"><span class="lf-label">Опер. хирург <span class="uz">(Hirurg)</span>:</span>
+        <span class="field-line" style="min-width:140px;">{{ doc.oper_hirurg|default:"" }}</span></span>
+    </div>
+    <div class="lf-row">
+        <span><span class="lf-label">Ассистент:</span>
+        <span class="field-line" style="min-width:160px;">{{ doc.assistent|default:"" }}</span></span>
+        <span style="margin-left:20px;">
+            <span class="lf-label">ВГД <span class="uz">(ВКБ)</span>:</span>
+            OD <span class="field-line" style="min-width:50px;">{{ doc.vgd_od|default:"" }}</span>
+            &nbsp; OS <span class="field-line" style="min-width:50px;">{{ doc.vgd_os|default:"" }}</span>
+        </span>
+    </div>
+
+    <!-- PRE-OP VISION -->
+    <div class="lf-section-title">Острота зрения <span class="uz" style="font-weight:normal;text-decoration:none;">(Ko'rish o'tkirligi)</span> — до операции <span class="uz" style="font-weight:normal;text-decoration:none;">(operatsiyadan oldin)</span>:</div>
+    <table class="vis-table">
+        <tr>
+            <td style="width:32px;font-weight:bold;">OD</td>
+            <td><span class="field-line" style="min-width:44px;">{{ doc.preop_vis_od|default:"" }}</span></td>
+            <td>&nbsp;Sph(-)</td>
+            <td><span class="field-line" style="min-width:44px;">{{ doc.preop_sph_od|default:"" }}</span></td>
+            <td>&nbsp;cyl(-)</td>
+            <td><span class="field-line" style="min-width:44px;">{{ doc.preop_cyl_od|default:"" }}</span></td>
+            <td>&nbsp;axis</td>
+            <td><span class="field-line" style="min-width:44px;">{{ doc.preop_axis_od|default:"" }}</span></td>
+            <td>&nbsp;= &nbsp;<span class="field-line" style="min-width:44px;">{{ doc.preop_corr_od|default:"" }}</span></td>
+        </tr>
+        <tr>
+            <td style="font-weight:bold;">OS</td>
+            <td><span class="field-line" style="min-width:44px;">{{ doc.preop_vis_os|default:"" }}</span></td>
+            <td>&nbsp;Sph(-)</td>
+            <td><span class="field-line" style="min-width:44px;">{{ doc.preop_sph_os|default:"" }}</span></td>
+            <td>&nbsp;cyl(-)</td>
+            <td><span class="field-line" style="min-width:44px;">{{ doc.preop_cyl_os|default:"" }}</span></td>
+            <td>&nbsp;axis</td>
+            <td><span class="field-line" style="min-width:44px;">{{ doc.preop_axis_os|default:"" }}</span></td>
+            <td>&nbsp;= &nbsp;<span class="field-line" style="min-width:44px;">{{ doc.preop_corr_os|default:"" }}</span></td>
+        </tr>
+    </table>
+
+    <!-- POST-OP VISION -->
+    <div class="lf-section-title" style="margin-top:8px;">ПОСЛЕ ОПЕРАЦИИ <span class="uz" style="font-weight:normal;text-decoration:none;">(Operatsiyadan keyin)</span></div>
+    <div style="font-weight:bold;font-size:14px;margin-bottom:4px;">Острота зрения:</div>
+    <div class="lf-row">
+        <span>OD &nbsp;<span class="field-line" style="min-width:70px;">{{ doc.postop_vis_od|default:"" }}</span></span>
+        <span style="margin-left:24px;">OS &nbsp;<span class="field-line" style="min-width:70px;">{{ doc.postop_vis_os|default:"" }}</span></span>
+    </div>
+
+    <!-- HOLAT BOX -->
+    <div class="holat-box">
+        {% if doc.holat %}{{ doc.holat }}{% else %}Глаз спокоен, лоскут прилегает, среды прозрачные{% endif %}
+    </div>
+
+    <!-- RECOMMENDATIONS -->
+    <div class="rec-block">
+        <div class="rec-title">Рекомендации <span class="uz">(Tavsiya)</span>:</div>
+        {% if doc.tavsiya %}
+        <div style="white-space:pre-line;margin-top:4px;">{{ doc.tavsiya }}</div>
+        {% else %}
+        <div>1-наблюдение офтальмолога. <span class="uz">(Ko'z shifokori nazorati)</span></div>
+        <div>2-ограничение физической нагрузки. <span class="uz">(Jismoniy yuklamani cheklash)</span></div>
+        {% endif %}
+    </div>
+
+    <!-- SIGNATURE -->
+    <div class="sig-line">
+        <span>Врач <span class="uz">(Shifokor)</span>: _________________________ {{ doc.oper_hirurg|default:doc.doctor.full_name }}</span>
+        <span>Дата <span class="uz">(Sana)</span>: {{ doc.created_at|date:"d.m.Y" }}</span>
+    </div>
+</div>

@@ -1,0 +1,175 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Ko'zoynaklar — Optimed CRM{% endblock %}
+{% block nav_seller %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Ko'zoynaklar</h1>
+        <p>Barcha ko'zoynaklar inventarizatsiyasi</p>
+    </div>
+    <button class="btn btn-primary btn-sm" onclick="openModal('addGlassesModal')">+ Qo'shish</button>
+</div>
+
+{% if error %}
+<div style="background:var(--danger);color:#fff;padding:12px 20px;border-radius:8px;margin-bottom:16px;font-size:14px;">{{ error }}</div>
+{% endif %}
+
+<div class="card animate-in">
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Brend</th>
+                    <th>Linza turi</th>
+                    <th>Tannarx</th>
+                    <th>Sotish narxi</th>
+                    <th>Miqdori</th>
+                    <th>Amallar</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for g in glasses %}
+                <tr>
+                    <td><strong>{{ g.model_name }}</strong></td>
+                    <td style="color:var(--text-muted);">{{ g.brand|default:"—" }}</td>
+                    <td>{{ g.lens_type|default:"—" }}</td>
+                    <td><strong>{{ g.cost_price|format_som }} so'm</strong></td>
+                    <td><strong>{{ g.sell_price|format_som }} so'm</strong></td>
+                    <td>
+                        {% if g.quantity == 0 %}
+                            <span class="badge badge-danger">0</span>
+                        {% elif g.quantity <= 3 %}
+                            <span class="badge badge-warning">{{ g.quantity }}</span>
+                        {% else %}
+                            <span class="badge badge-success">{{ g.quantity }}</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div style="display:flex;gap:6px;">
+                            <button class="btn-icon" onclick="openEditGlasses({{ g.pk }}, '{{ g.model_name|escapejs }}', '{{ g.brand|escapejs }}', '{{ g.lens_type|escapejs }}', '{{ g.cost_price }}', '{{ g.sell_price }}', '{{ g.quantity }}')" title="Tahrirlash">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                            <form method="post" action="{% url 'seller_delete_glasses' g.pk %}" style="display:inline;" onsubmit="return confirm('Bu ko\'zoynakni o\'chirmoqchimisiz?')">
+                                {% csrf_token %}
+                                <button class="btn-icon" style="color:var(--danger);border-color:var(--danger);" title="O'chirish">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="empty-state"><p>Hali ko'zoynaklar qo'shilmagan</p></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ADD GLASSES MODAL -->
+<div class="modal-backdrop" id="addGlassesModal">
+    <div class="modal">
+        <h3>Yangi ko'zoynak qo'shish</h3>
+        <form method="post" action="{% url 'seller_add_glasses' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Model nomi</label>
+                <input type="text" name="model_name" class="form-control" required placeholder="Masalan: Ray-Ban Aviator">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Brend</label>
+                    <input type="text" name="brand" class="form-control" placeholder="Masalan: Ray-Ban">
+                </div>
+                <div class="form-group">
+                    <label>Linza turi</label>
+                    <input type="text" name="lens_type" class="form-control" placeholder="Masalan: Polarizatsiya">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tannarx (so'm)</label>
+                    <input type="number" name="cost_price" class="form-control" step="1000" required placeholder="0">
+                </div>
+                <div class="form-group">
+                    <label>Sotish narxi (so'm)</label>
+                    <input type="number" name="sell_price" class="form-control" step="1000" required placeholder="0">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Miqdori</label>
+                <input type="number" name="quantity" class="form-control" required placeholder="0" min="0">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addGlassesModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Qo'shish</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT GLASSES MODAL -->
+<div class="modal-backdrop" id="editGlassesModal">
+    <div class="modal">
+        <h3>Ko'zoynakni tahrirlash</h3>
+        <form method="post" id="editGlassesForm">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Model nomi</label>
+                <input type="text" name="model_name" id="editGlassesModelName" class="form-control" required>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Brend</label>
+                    <input type="text" name="brand" id="editGlassesBrand" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label>Linza turi</label>
+                    <input type="text" name="lens_type" id="editGlassesLensType" class="form-control">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Tannarx (so'm)</label>
+                    <input type="number" name="cost_price" id="editGlassesCostPrice" class="form-control" step="1000" required>
+                </div>
+                <div class="form-group">
+                    <label>Sotish narxi (so'm)</label>
+                    <input type="number" name="sell_price" id="editGlassesSellPrice" class="form-control" step="1000" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Miqdori</label>
+                <input type="number" name="quantity" id="editGlassesQuantity" class="form-control" required min="0">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editGlassesModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Saqlash</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+function openEditGlasses(pk, model_name, brand, lens_type, cost_price, sell_price, quantity) {
+    document.getElementById('editGlassesForm').action = '/seller/edit/' + pk + '/';
+    document.getElementById('editGlassesModelName').value = model_name;
+    document.getElementById('editGlassesBrand').value = brand;
+    document.getElementById('editGlassesLensType').value = lens_type;
+    document.getElementById('editGlassesCostPrice').value = cost_price;
+    document.getElementById('editGlassesSellPrice').value = sell_price;
+    document.getElementById('editGlassesQuantity').value = quantity;
+    openModal('editGlassesModal');
+}
+
+document.querySelectorAll('.modal-backdrop').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('active'); });
+});
+</script>
+{% endblock %}

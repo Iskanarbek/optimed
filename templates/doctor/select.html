@@ -1,0 +1,30 @@
+{% extends 'base.html' %}
+{% block title %}Doktor tanlash — Optimed CRM{% endblock %}
+{% block nav_doctor %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Doktor paneli</h1>
+        <p>Davom etish uchun profilingizni tanlang</p>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:20px;">
+    {% for doctor in doctors %}
+    <a href="{% url 'doctor_panel' doctor.pk %}" style="text-decoration:none;">
+        <div class="card animate-in" style="cursor:pointer;text-align:center;padding:40px 24px;">
+            <div class="patient-avatar" style="width:64px;height:64px;font-size:22px;margin:0 auto 16px;">
+                {{ doctor.name|first }}{{ doctor.surname|first }}
+            </div>
+            <h3 style="font-size:18px;color:var(--dark);margin-bottom:4px;">Dr. {{ doctor.full_name }}</h3>
+            <p style="color:var(--text-muted);font-size:13px;">{{ doctor.service.name|default:"Umumiy" }}</p>
+        </div>
+    </a>
+    {% empty %}
+    <div class="empty-state" style="grid-column:1/-1;">
+        <p>Hali doktorlar ro'yxatdan o'tmagan. Admin paneldan doktor qo'shing.</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

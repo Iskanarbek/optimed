@@ -1,0 +1,192 @@
+<style>
+.sf {
+    font-family: 'Times New Roman', Times, serif;
+    font-size: 14px; color: #000; line-height: 1.6;
+    max-width: 190mm; margin: 0 auto;
+}
+.sf-header {
+    text-align: center; margin-bottom: 6px;
+}
+.sf-logo-name { font-size: 22px; font-weight: bold; letter-spacing: 1px; }
+.sf-logo-sub { font-size: 12px; color: #555; letter-spacing: 2px; }
+.sf-addr { font-size: 12px; margin-top: 2px; }
+.sf-border-top { border-top: 2px solid #000; margin: 6px 0; }
+.sf-title { font-size: 16px; font-weight: bold; margin: 5px 0; }
+.uz { font-size: 11px; color: #777; font-style: italic; }
+.sf-line { border-bottom: 1px solid #000; display: inline-block; min-width: 100px; }
+.sf-row { display: flex; align-items: baseline; gap: 6px; margin-bottom: 5px; flex-wrap: wrap; }
+.sf-lbl { font-weight: bold; }
+.sf-sect { font-weight: bold; font-size: 14px; margin: 7px 0 3px; }
+.sf-pre { font-size: 14px; line-height: 1.6; margin: 4px 0; }
+.sf-pre .blank { border-bottom: 1px solid #000; display: inline-block; min-width: 30px; text-align: center; }
+.sf-sig { display: flex; justify-content: space-between; margin-top: 16px; font-size: 13px; }
+@media print {
+    @page { size: A4 portrait; margin: 8mm 10mm; }
+    .sf { max-width: 100%; }
+}
+</style>
+
+<div class="sf">
+    <!-- HEADER -->
+    <div class="sf-header">
+        <div class="sf-logo-name">OPTIMED <span style="color:#c00;">DUNYAGO'Z</span></div>
+        <div class="sf-logo-sub">ГЛАЗНАЯ КЛИНИКА <span class="uz">(Ko'z salomatligi markazi)</span></div>
+        <div class="sf-addr">Manzil: г. Ташкент, Алмазарский р-н, ул. Зиё дом 7А &nbsp;·&nbsp; Тел: +998 91-166-62-22</div>
+    </div>
+    <div class="sf-border-top"></div>
+
+    <!-- PROTOCOL + TITLE -->
+    <div class="sf-row">
+        <span>№ <span class="sf-line" style="min-width:60px;">{{ doc.protocol_number|default:"&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;" }}</span></span>
+        <span class="sf-title">Выписка из истории болезни <span class="uz">(Kasallik tarixidan ko'chirma)</span></span>
+    </div>
+
+    <!-- PATIENT -->
+    <div class="sf-row">
+        <span class="sf-lbl">Пациент <span class="uz">(Bemor)</span>:</span>
+        <span class="sf-line" style="min-width:200px;flex:1;">{{ doc.patient.surname }} {{ doc.patient.name }}</span>
+        <span class="sf-lbl">Д.р. <span class="uz">(T.s.)</span>:</span>
+        <span class="sf-line" style="min-width:80px;">{{ doc.patient.birth_date|date:"d.m.Y"|default:"" }}</span>
+    </div>
+
+    <!-- COMPLAINTS -->
+    <div class="sf-sect">Жалобы при поступлении <span class="uz" style="font-weight:normal;">(Kelganда shikoyati)</span>:</div>
+    <div class="sf-pre">
+        {% if doc.shikoyat %}
+        {{ doc.shikoyat }}
+        {% else %}
+        OD / OS глаза отклонение кнаружи, кнутри, кверху, книзу. <span class="uz">(ko'zning tashqarига, ichkariga, tepaga, pastga qarab g'ilaylanishi)</span>
+        {% endif %}
+    </div>
+
+    <!-- EXAMINATION RESULTS -->
+    <div class="sf-sect">Результаты обследования <span class="uz" style="font-weight:normal;">(Tekshiruvlar natijasi)</span>:</div>
+    <div class="sf-row">
+        <span><span class="sf-lbl">VIS:</span>
+        <span class="sf-line" style="min-width:120px;">{{ doc.vis|default:"" }}</span></span>
+        <span style="margin-left:20px;"><span class="sf-lbl">Dev°:</span>
+        <span class="sf-line" style="min-width:60px;">{{ doc.dev_darajasi|default:"" }}</span>°</span>
+    </div>
+
+    <!-- DIAGNOSIS -->
+    <div class="sf-row" style="margin-top:2px;">
+        <span class="sf-lbl">Диагноз <span class="uz">(Tashxis)</span>:</span>
+        <span style="flex:1;">
+        {% if doc.tashxis %}
+        {{ doc.tashxis }}
+        {% else %}
+        OD / OS Эзофория, Экзофория, Эзотропия, Экзотропия, с вертикальным компонентом, Паралитическое косоглазие, OHD, DVD, A-, V-, Y-, X-, синдром
+        {% endif %}
+        </span>
+    </div>
+
+    <!-- RECOMMENDATION FOR SURGERY -->
+    <div class="sf-row" style="margin-top:2px;">
+        <span class="sf-lbl">Рекомендовано <span class="uz">(Tavsiya)</span>:</span>
+        <span>OD / OS Лечение косоглазия хирургическим методом <span class="uz">(g'ilaylikni jarrohlik usuli bilan davolash)</span></span>
+    </div>
+
+    <!-- INDICATIONS -->
+    <div class="sf-sect">Показания к операции <span class="uz" style="font-weight:normal;">(Operatsiyaga ko'rsatma)</span>:</div>
+    <div class="sf-pre">
+        1. OD / OS Косоглазие глаза <span class="uz">(ko'zning g'ilaylanishi)</span><br>
+        2. Общее состояние больного пригодно к операции <span class="uz">(bemor umumiy holati operatsiyaga layoqatliligi)</span><br>
+        3. Согласие пациента и родственников <span class="uz">(bemor va qarindoshlarning roziligi)</span>
+    </div>
+
+    <!-- OPERATION -->
+    <div class="sf-sect" style="margin-top:5px;">ОПЕРАЦИЯ <span class="uz" style="font-weight:normal;">(Jarrohlik)</span></div>
+    <div class="sf-pre">
+        Анестезия: ретробулбарная 3.0 мл 4% лидокаина + общая в/в анестезия. <span class="uz">(umumiy vena ichiga na mahalliy 3.0 ml 4% lidokain eritmasi bilan retrobulbar)</span>
+        Операционное поле обработано антисептическим раствором. <span class="uz">(Operatsion maydonni olaldan usulda nashhos beriladi)</span>
+        Установлен блефаростат. <span class="uz">(Blefarostat qo'yildi)</span>
+        Конъюнктива рассечена лимбально. <span class="uz">(Kon'yunktiva limbal kesildi)</span>
+        Выделены мышцы. <span class="uz">(Mushaklar ajratildi)</span>
+    </div>
+
+    <!-- RECESSION -->
+    <div class="sf-pre" style="margin-top:3px;">
+        <span class="sf-lbl">Рецессия <span class="uz">(Retsessiya)</span> м.rectus</span>
+        later / medial / infer / super &nbsp;
+        <span style="font-weight:bold;">OD / OS / OU</span> —
+        Мышца отсечена от места прикрепления к склере, наложены узловые швы, пришита на
+        <span class="blank">{{ doc.recession_mm|default:"&nbsp;&nbsp;&nbsp;" }}</span> мм от лимба.
+        {% if doc.recession_muscle %}<br><em style="font-size:10px;">Мышца: {{ doc.recession_muscle }}{% if doc.recession_eye %}, {{ doc.recession_eye }}{% endif %}</em>{% endif %}
+    </div>
+
+    <!-- RESECTION -->
+    <div class="sf-pre" style="margin-top:3px;">
+        <span class="sf-lbl">Резекция <span class="uz">(Rezeksiya)</span> м.rectus</span>
+        later / medial / infer / super &nbsp;
+        <span style="font-weight:bold;">OD / OS / OU</span> —
+        Мышца отсечена от места прикрепления, резецировано
+        <span class="blank">{{ doc.resection_mm|default:"&nbsp;&nbsp;&nbsp;" }}</span> мм,
+        наложены узловые швы, пришита обратно к склере.
+        {% if doc.resection_muscle %}<br><em style="font-size:10px;">Мышца: {{ doc.resection_muscle }}{% if doc.resection_eye %}, {{ doc.resection_eye }}{% endif %}</em>{% endif %}
+    </div>
+
+    <!-- TRANSPOSITION -->
+    {% if doc.transposition_eye %}
+    <div class="sf-pre" style="margin-top:3px;">
+        <span class="sf-lbl">Транспозиция <span class="uz">(Transpozitsiya)</span> м.obliquus super/infer OD / OS / OU</span>
+        &nbsp;— {{ doc.transposition_eye }}
+    </div>
+    {% endif %}
+
+    <div class="sf-pre" style="margin-top:4px;font-weight:bold;">
+        Операция прошла без осложнений. <span class="uz" style="font-weight:normal;">(Operatsiya asaratsiz o'tdi)</span>
+    </div>
+
+    <!-- POST-OP STATUS -->
+    <div class="sf-sect" style="margin-top:5px;">При выписке <span class="uz" style="font-weight:normal;">(Chiqimda)</span>:</div>
+    <div class="sf-pre">
+        Общее состояние пациента удовлетворительное. Жалоб нет. Операционная рана чистая, без патологических выделений, швы состоятельные. <span class="uz">(Bemorning umumiy holati qoniqarli. Shikoyati yo'q. Operatsion jarоhat toza, shvlar holati yaxshi)</span>
+    </div>
+    <div class="sf-row" style="margin-top:3px;">
+        <span class="sf-lbl">Dev° (после / keyin):</span>
+        <span class="sf-line" style="min-width:60px;">{{ doc.postop_dev|default:"" }}</span>°
+    </div>
+
+    <!-- RECOMMENDATIONS -->
+    <div class="sf-sect">Рекомендации <span class="uz" style="font-weight:normal;">(Tavsiya)</span>:</div>
+    {% if doc.tavsiya %}
+    <div class="sf-pre" style="white-space:pre-line;">{{ doc.tavsiya }}</div>
+    {% else %}
+    <div class="sf-pre">
+        1. Флоксацин глазные капли, 1 кап × 4 раза в день <span class="uz">(Floksatsin ko'z tomchisi, 1 tomchi × 4 mahаl)</span><br>
+        2. Повторный осмотр через 7 дней <span class="uz">(Qayta ko'ruv 7 kundan so'ng)</span>
+    </div>
+    {% endif %}
+
+    <!-- AFTER SURGERY -->
+    <div class="sf-sect" style="margin-top:8px;">G'ilaylik operatsiyasidan keyin <span class="uz" style="font-weight:normal;">(После операции косоглазия)</span>:</div>
+    {% if doc.gilaylik_keyin %}
+    <div class="sf-pre" style="white-space:pre-line;">{{ doc.gilaylik_keyin }}</div>
+    {% if doc.gilaylik_keyin_ru %}
+    <div class="sf-pre" style="white-space:pre-line;border-left:2px solid #aaa;padding-left:8px;margin-top:4px;color:#222;">{{ doc.gilaylik_keyin_ru }}</div>
+    {% endif %}
+    {% else %}
+    <div style="border-bottom:1px solid #000;min-height:40px;margin:3px 0;">&nbsp;</div>
+    <div style="border-bottom:1px solid #000;min-height:40px;margin:3px 0;">&nbsp;</div>
+    <div style="border-bottom:1px solid #000;min-height:40px;margin:3px 0;">&nbsp;</div>
+    {% endif %}
+
+    <!-- MEDICATIONS -->
+    <div class="sf-sect" style="margin-top:8px;">Dorilar <span class="uz" style="font-weight:normal;">(Лекарства)</span>:</div>
+    {% if doc.dorilar %}
+    <div class="sf-pre" style="white-space:pre-line;">{{ doc.dorilar }}</div>
+    {% if doc.dorilar_ru %}
+    <div class="sf-pre" style="white-space:pre-line;border-left:2px solid #aaa;padding-left:8px;margin-top:4px;color:#222;">{{ doc.dorilar_ru }}</div>
+    {% endif %}
+    {% else %}
+    <div style="border-bottom:1px solid #000;min-height:40px;margin:3px 0;">&nbsp;</div>
+    <div style="border-bottom:1px solid #000;min-height:40px;margin:3px 0;">&nbsp;</div>
+    <div style="border-bottom:1px solid #000;min-height:40px;margin:3px 0;">&nbsp;</div>
+    {% endif %}
+
+    <!-- SIGNATURE -->
+    <div class="sf-sig">
+        <span>Врач <span class="uz">(Shifokor)</span>: _________________________ {% if doc.doctor %}{{ doc.doctor.full_name }}{% endif %}</span>
+        <span>Дата <span class="uz">(Sana)</span>: {{ doc.created_at|date:"d.m.Y" }}</span>
+    </div>
+</div>

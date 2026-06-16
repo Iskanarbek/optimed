@@ -1,0 +1,165 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Rejalashtirish — Optimed CRM{% endblock %}
+{% block nav_schedule %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Rejalashtirish</h1>
+        <p>Rejalashtirilgan uchrashuvlarni boshqarish</p>
+    </div>
+    <button class="btn btn-primary" onclick="openModal('addScheduleModal')">+ Yangi uchrashuv</button>
+</div>
+
+<!-- TODAY'S APPOINTMENTS -->
+<div class="card animate-in">
+    <div class="card-header">
+        <h3>Bugungi uchrashuvlar</h3>
+        <span class="counter">{{ today_scheduled|length }}</span>
+    </div>
+    {% for item in today_scheduled %}
+    <div class="notification-item">
+        <div class="patient-info">
+            <div class="patient-avatar">{{ item.patient.name|first }}{{ item.patient.surname|first }}</div>
+            <div>
+                <div class="patient-name">{{ item.patient.full_name }}</div>
+                <div class="patient-phone">{{ item.patient.phone }}</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                    Dr. {% if item.doctor %}{{ item.doctor.full_name }}{% else %}—{% endif %}
+                    &middot; {{ item.scheduled_time|time:"H:i" }}
+                </div>
+                {% if item.notes %}
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                    {{ item.notes|truncatewords:10 }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            {% if item.activated %}
+                <span class="badge badge-success">Faollashtirilgan</span>
+            {% else %}
+                <span class="badge badge-warning">Kutilmoqda</span>
+            {% endif %}
+
+            {% if not item.activated %}
+            <form method="post" action="{% url 'activate_scheduled_visit' item.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-primary btn-sm">Faollashtirish</button>
+            </form>
+            <form method="post" action="{% url 'delete_scheduled_visit' item.pk %}" style="display:inline;" onsubmit="return confirm('Bu uchrashuvni bekor qilmoqchimisiz?')">
+                {% csrf_token %}
+                <button class="btn btn-danger btn-sm">Bekor qilish</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <p>Bugungi uchrashuvlar yo'q</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- FUTURE APPOINTMENTS -->
+<div class="card animate-in">
+    <div class="card-header">
+        <h3>Kelgusi uchrashuvlar</h3>
+        <span class="counter">{{ future_scheduled|length }}</span>
+    </div>
+    {% for item in future_scheduled %}
+    <div class="notification-item">
+        <div class="patient-info">
+            <div class="patient-avatar">{{ item.patient.name|first }}{{ item.patient.surname|first }}</div>
+            <div>
+                <div class="patient-name">{{ item.patient.full_name }}</div>
+                <div class="patient-phone">{{ item.patient.phone }}</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                    Dr. {% if item.doctor %}{{ item.doctor.full_name }}{% else %}—{% endif %}
+                    &middot; {{ item.scheduled_date|date:"d.m.Y" }} {{ item.scheduled_time|time:"H:i" }}
+                </div>
+                {% if item.notes %}
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                    {{ item.notes|truncatewords:10 }}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            {% if not item.activated %}
+                <span class="badge badge-info">Rejalashtirilgan</span>
+            {% endif %}
+
+            {% if not item.activated %}
+            <form method="post" action="{% url 'delete_scheduled_visit' item.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button class="btn btn-danger btn-sm">Bekor qilish</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <p>Kelgusi uchrashuvlar yo'q</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- ADD SCHEDULE MODAL -->
+<div class="modal-backdrop" id="addScheduleModal">
+    <div class="modal">
+        <h3>Yangi uchrashuv rejalashtirish</h3>
+        <form method="post" action="{% url 'add_scheduled_visit' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Bemor</label>
+                <select name="patient" class="form-control" required>
+                    <option value="">— Bemorni tanlang —</option>
+                    {% for p in patients %}
+                    <option value="{{ p.pk }}">{{ p.full_name }} — {{ p.phone }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Doktor</label>
+                <select name="doctor" class="form-control" required>
+                    <option value="">— Doktorni tanlang —</option>
+                    {% for d in doctors %}
+                    <option value="{{ d.pk }}">Dr. {{ d.full_name }}{% if d.service %} — {{ d.service.name }}{% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Sana</label>
+                    <input type="date" name="scheduled_date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label>Vaqt</label>
+                    <input type="time" name="scheduled_time" class="form-control" required>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Izoh (ixtiyoriy)</label>
+                <textarea name="notes" class="form-control" rows="2" placeholder="Qo'shimcha ma'lumot..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addScheduleModal')">Bekor qilish</button>
+                <button type="submit" class="btn btn-primary">Rejalashtirish</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+document.querySelectorAll('.modal-backdrop').forEach(function(m) {
+    m.addEventListener('click', function(e) { if (e.target === m) m.classList.remove('active'); });
+});
+</script>
+{% endblock %}

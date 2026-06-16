@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}O'chirilgan doktor tashriflari — Optimed CRM{% endblock %}
+{% block nav_history %}active{% endblock %}
+
+{% block content %}
+<div class="detail-header">
+    <a href="{% url 'receptionist_history' %}?tab=doctors" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Tarixga qaytish
+    </a>
+</div>
+
+<div class="page-header">
+    <div>
+        <h1>{% if doctor_name_filter %}{{ doctor_name_filter }}{% else %}O'chirilgan doktor{% endif %} tashriflari</h1>
+        <p>Bu tashriflarning doktori o'chirilgan. Yangi doktorga biriktiring.</p>
+    </div>
+</div>
+
+{% if visits %}
+<div class="card animate-in">
+    <div class="card-header"><h3>Tashriflar ({{ visits|length }} ta)</h3></div>
+    <form method="post" action="{% url 'receptionist_reassign_doctor' %}">
+        {% csrf_token %}
+        <div style="padding:16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;">
+            <label style="font-weight:600;font-size:14px;white-space:nowrap;">Yangi doktor:</label>
+            <select name="new_doctor" class="form-control" required style="max-width:300px;">
+                <option value="">— Doktorni tanlang —</option>
+                {% for d in doctors %}
+                <option value="{{ d.pk }}">Dr. {{ d.full_name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-primary btn-sm">Tanlanganlarga biriktirish</button>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="selectAll" onclick="toggleAll()"></th>
+                        <th>Bemor</th>
+                        <th>Xizmat</th>
+                        <th>Sana</th>
+                        <th>Holat</th>
+                        <th>To'lov</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for visit in visits %}
+                    <tr>
+                        <td><input type="checkbox" name="visit_ids" value="{{ visit.pk }}"></td>
+                        <td><strong>{{ visit.patient.full_name }}</strong></td>
+                        <td>{{ visit|visit_service_names }}</td>
+                        <td>{{ visit.created_at|date:"d.m.Y" }}</td>
+                        <td>
+                            {% if visit.status == 'done' %}<span class="badge badge-success">Tugatildi</span>
+                            {% elif visit.status == 'has_procedure' %}<span class="badge badge-warning">Protsedurasi bor</span>
+                            {% elif visit.status == 'waiting' %}<span class="badge badge-info">Kutmoqda</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ visit.final_price|format_som }} so'm</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleAll() {
+    const checked = document.getElementById('selectAll').checked;
+    document.querySelectorAll('input[name="visit_ids"]').forEach(cb => cb.checked = checked);
+}
+</script>
+{% else %}
+<div class="card">
+    <div class="empty-state">
+        <p>Doktorsiz tashriflar yo'q</p>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

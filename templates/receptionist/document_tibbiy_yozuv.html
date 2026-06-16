@@ -1,0 +1,84 @@
+<style>
+.ty { font-family: 'Times New Roman', serif; font-size: 12.5px; color: #000; line-height: 1.45; }
+.ty h3 { font-size: 12.5px; margin: 6px 0 3px; font-weight: bold; border-bottom: 1px solid #999; padding-bottom: 2px; }
+.ty .row { display: flex; justify-content: space-between; margin-bottom: 3px; flex-wrap: wrap; gap: 3px; }
+.ty .fld { margin-bottom: 3px; }
+.ty .lbl { font-weight: bold; }
+.ty table { width: 100%; border-collapse: collapse; margin: 4px 0; table-layout: fixed; }
+.ty table th, .ty table td { border: 1px solid #888; padding: 3px 5px; font-size: 12px; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; }
+.ty table th { background: #f0f0f0; text-align: center; font-weight: bold; }
+.ty .sig { display: flex; justify-content: space-between; margin-top: 12px; font-size: 12px; }
+@media print { @page { size: A4 portrait; margin: 8mm; } }
+</style>
+<div class="ty">
+    <div style="text-align:center;font-weight:bold;font-size:15px;margin-bottom:5px;">"OPTIMED" ko'z salomatligi markazi — Tibbiy yozuv</div>
+    <div class="row">
+        <span><span class="lbl">Bemor:</span> {{ doc.patient.surname }} {{ doc.patient.name }}</span>
+        <span><span class="lbl">T.s.:</span> {{ doc.patient.birth_date|date:"d.m.Y"|default:"—" }}</span>
+        <span><span class="lbl">Telefon:</span> {{ doc.patient.phone }}</span>
+        <span><span class="lbl">Sana:</span> {{ doc.created_at|date:"d.m.Y H:i" }}</span>
+    </div>
+    <div class="row">
+        <span><span class="lbl">Shifokor:</span> {% if doc.doctor %}Dr. {{ doc.doctor.full_name }}{% else %}—{% endif %}</span>
+        {% if doc.patient.address %}<span><span class="lbl">Manzil:</span> {{ doc.patient.address }}</span>{% endif %}
+    </div>
+
+    {% if doc.anamnesis_morbi %}<div class="fld"><span class="lbl">Anamnesis morbi:</span> {{ doc.anamnesis_morbi }}</div>{% endif %}
+    {% if doc.operatsiyalar %}<div class="fld"><span class="lbl">Operatsiyalar:</span> {{ doc.operatsiyalar }}</div>{% endif %}
+    {% if doc.tomizilgan %}<div class="fld"><span class="lbl">Tomizilgan:</span> {{ doc.tomizilgan }}</div>{% endif %}
+    {% if doc.koz_oynak_kontakt_linza %}<div class="fld"><span class="lbl">Ko'z oynak / Kontakt linza:</span> {{ doc.koz_oynak_kontakt_linza }}</div>{% endif %}
+    {% if doc.anamnesis_vitae %}<div class="fld"><span class="lbl">Anamnesis vitae:</span> {{ doc.anamnesis_vitae }}</div>{% endif %}
+    {% if doc.allergiya %}<div class="fld"><span class="lbl">Allergiya:</span> {{ doc.allergiya }}</div>{% endif %}
+
+    <h3>Ko'z tekshiruvi / Осмотр глаз</h3>
+    <table>
+        <thead>
+            <tr>
+                <th style="width:26%;text-align:left;">Ko'rsatkich</th>
+                <th style="width:37%;">OD (O'ng / Правый)</th>
+                <th style="width:37%;">OS (Chap / Левый)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td>Qovoqlar / Веки (ko'z yosh yo'llari)</td><td>{{ doc.qovoqlar_od|default:"" }}</td><td>{{ doc.qovoqlar_os|default:"" }}</td></tr>
+            <tr><td>Ko'z soqqasi / Глазница</td><td>{{ doc.koz_soqqasi_od|default:"" }}</td><td>{{ doc.koz_soqqasi_os|default:"" }}</td></tr>
+            <tr><td>Ko'z olmasi / Глазное яблоко</td><td>{{ doc.koz_olmasi_od|default:"" }}</td><td>{{ doc.koz_olmasi_os|default:"" }}</td></tr>
+            <tr><td>Sklera / Склера</td><td>{{ doc.sklera_od|default:"" }}</td><td>{{ doc.sklera_os|default:"" }}</td></tr>
+            <tr><td>Shox parda / Роговица</td><td>{{ doc.shox_parda_od|default:"" }}</td><td>{{ doc.shox_parda_os|default:"" }}</td></tr>
+            <tr><td>Old kamera / Передняя камера</td><td>{{ doc.old_kamera_od|default:"" }}</td><td>{{ doc.old_kamera_os|default:"" }}</td></tr>
+            <tr><td>Rangdor parda (qorachiq) / Радужка</td><td>{{ doc.rangdor_parda_od|default:"" }}</td><td>{{ doc.rangdor_parda_os|default:"" }}</td></tr>
+            <tr><td>Gavhar / Хрусталик</td><td>{{ doc.gavhar_od|default:"" }}</td><td>{{ doc.gavhar_os|default:"" }}</td></tr>
+            <tr><td>Ko'rish o'tkirligi / Visus</td><td>{{ doc.korish_otkirligi_od|default:"" }}</td><td>{{ doc.korish_otkirligi_os|default:"" }}</td></tr>
+            <tr><td>Korreksiya bilan / С коррекцией</td><td>{{ doc.korreksiya_bilan_od|default:"" }}</td><td>{{ doc.korreksiya_bilan_os|default:"" }}</td></tr>
+            <tr><td>Shishasimon tana / Стекловидное тело</td><td>{{ doc.shishasimon_tana_od|default:"" }}</td><td>{{ doc.shishasimon_tana_os|default:"" }}</td></tr>
+            <tr><td>Oftalmoskopiya / Офтальмоскопия</td><td>{{ doc.oftalmoskopiya_od|default:"" }}</td><td>{{ doc.oftalmoskopiya_os|default:"" }}</td></tr>
+            {% if doc.fundus_od or doc.fundus_os %}<tr><td>Fundus / Глазное дно</td><td>{{ doc.fundus_od|default:"" }}</td><td>{{ doc.fundus_os|default:"" }}</td></tr>{% endif %}
+            {% if doc.ubm_od or doc.ubm_os %}<tr><td>УБМ</td><td>{{ doc.ubm_od|default:"" }}</td><td>{{ doc.ubm_os|default:"" }}</td></tr>{% endif %}
+            {% if doc.oct_od or doc.oct_os %}<tr><td>OCT</td><td>{{ doc.oct_od|default:"" }}</td><td>{{ doc.oct_os|default:"" }}</td></tr>{% endif %}
+            {% if doc.kp_od or doc.kp_os %}<tr><td>KP (Pachymetriya)</td><td>{{ doc.kp_od|default:"" }}</td><td>{{ doc.kp_os|default:"" }}</td></tr>{% endif %}
+            {% if doc.b_skan_od or doc.b_skan_os %}<tr><td>B-skan / В-скан</td><td>{{ doc.b_skan_od|default:"" }}</td><td>{{ doc.b_skan_os|default:"" }}</td></tr>{% endif %}
+            {% if doc.periferiya_od or doc.periferiya_os %}<tr><td>Periferiya</td><td>{{ doc.periferiya_od|default:"" }}</td><td>{{ doc.periferiya_os|default:"" }}</td></tr>{% endif %}
+        </tbody>
+    </table>
+
+    {% if doc.tashxis %}<div class="fld" style="margin-top:5px;"><span class="lbl">Tashxis / Диагноз:</span> {{ doc.tashxis }}</div>{% endif %}
+    {% if doc.tavsiya %}<div class="fld"><span class="lbl">Tavsiya / Рекомендации:</span> {{ doc.tavsiya }}</div>{% endif %}
+
+    {% if doc.retsept_uzoq_od or doc.retsept_uzoq_os or doc.retsept_yaqin_od or doc.retsept_yaqin_os or doc.retsept_kontakt_od or doc.retsept_kontakt_os %}
+    <h3>Retsept / Рецепт</h3>
+    <table>
+        <thead><tr><th style="text-align:left;width:30%;">Tur</th><th>OD</th><th>OS</th></tr></thead>
+        <tbody>
+            {% if doc.retsept_uzoq_od or doc.retsept_uzoq_os %}<tr><td>Uzoq / Вдаль</td><td>{{ doc.retsept_uzoq_od|default:"—" }}</td><td>{{ doc.retsept_uzoq_os|default:"—" }}</td></tr>{% endif %}
+            {% if doc.retsept_yaqin_od or doc.retsept_yaqin_os %}<tr><td>Yaqin / Вблизи</td><td>{{ doc.retsept_yaqin_od|default:"—" }}</td><td>{{ doc.retsept_yaqin_os|default:"—" }}</td></tr>{% endif %}
+            {% if doc.retsept_kontakt_od or doc.retsept_kontakt_os %}<tr><td>Kontakt linza</td><td>{{ doc.retsept_kontakt_od|default:"—" }}</td><td>{{ doc.retsept_kontakt_os|default:"—" }}</td></tr>{% endif %}
+        </tbody>
+    </table>
+    {% endif %}
+
+    <div class="sig">
+        <span>Shifokor: _________________________ {% if doc.doctor %}{{ doc.doctor.full_name }}{% endif %}</span>
+        <span>Bemor imzosi: _______________________</span>
+        <span>Sana: {{ doc.created_at|date:"d.m.Y" }}</span>
+    </div>
+</div>

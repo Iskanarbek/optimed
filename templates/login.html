@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kirish — Optimed CRM</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+</head>
+<body>
+<div class="login-page">
+    <div class="login-card">
+        <div class="login-logo">
+            <h1>OPTIMED</h1>
+            <span>Tibbiyot CRM</span>
+        </div>
+        <p class="login-subtitle">Tizimga kirish</p>
+
+        {% if error %}
+        <div class="login-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="{% url 'login' %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label>Foydalanuvchi nomi</label>
+                <input type="text" name="name" class="form-control" required placeholder="Ismingizni kiriting" autofocus>
+            </div>
+            <div class="form-group">
+                <label>Parol</label>
+                <input type="text" name="phone" class="form-control" required placeholder="Parolingizni kiriting">
+            </div>
+            <button type="submit" class="btn btn-primary">Kirish</button>
+        </form>
+    </div>
+</div>
+</body>
+</html>

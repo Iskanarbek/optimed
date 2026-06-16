@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block title %}Protseduralar — Optimed CRM{% endblock %}
+{% block nav_procedures %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Protseduralar</h1>
+        <p>Kelgusi protsedura sanalariga ega bemorlar</p>
+    </div>
+    <span class="counter">{{ procedure_dates.count }}</span>
+</div>
+
+<div class="card">
+    {% for pd in procedure_dates %}
+    <div class="notification-item">
+        <div class="patient-info">
+            <div class="patient-avatar">{{ pd.procedure.patient.name|first }}{{ pd.procedure.patient.surname|first }}</div>
+            <div>
+                <div class="patient-name">{{ pd.procedure.patient.full_name }}</div>
+                <div class="patient-phone">{{ pd.procedure.patient.phone }}</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                    Dr. {% if pd.procedure.doctor %}{{ pd.procedure.doctor.full_name }}{% else %}O'chirilgan doktor{% endif %} &middot; Sana: {{ pd.scheduled_date|date:"d.m.Y" }}
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);margin-top:2px;">
+                    {{ pd.procedure.description|truncatewords:10 }}
+                </div>
+            </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;">
+            {% if pd.scheduled_date < today %}
+                <span class="badge badge-danger">Muddati o'tgan</span>
+            {% elif pd.scheduled_date == today %}
+                <span class="badge badge-warning">Bugun</span>
+            {% else %}
+                <span class="badge badge-info">Ertaga</span>
+            {% endif %}
+
+            {% if pd.notified %}
+                <span class="badge badge-success">Xabardor qilingan</span>
+            {% else %}
+                <form method="post" action="{% url 'notify_procedure' pd.pk %}">
+                    {% csrf_token %}
+                    <button class="btn btn-primary btn-sm">Xabardor qilindi</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <p>Kelgusi protseduralar yo'q</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

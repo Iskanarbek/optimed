@@ -1,0 +1,74 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Tahlil — {{ lab_visit.patient.full_name }} — Optimed CRM{% endblock %}
+{% block nav_lab %}active{% endblock %}
+
+{% block content %}
+<div class="detail-header">
+    <a href="{% url 'lab_panel' %}" class="back-btn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Panelga qaytish
+    </a>
+</div>
+
+<div class="page-header">
+    <div>
+        <h1>{{ lab_visit.patient.full_name }}</h1>
+        <p>
+            {% if lab_visit.status == 'waiting' %}<span class="badge badge-warning">Kutmoqda</span>
+            {% elif lab_visit.status == 'in_progress' %}<span class="badge badge-info">Jarayonda</span>
+            {% elif lab_visit.status == 'done' %}<span class="badge badge-success">Tayyor</span>
+            {% endif %}
+        </p>
+    </div>
+</div>
+
+<div class="card animate-in">
+    <div class="card-header">
+        <h3>Tahlil natijalari</h3>
+    </div>
+    <form method="post" action="{% url 'lab_save_results' lab_visit.pk %}">
+        {% csrf_token %}
+        <style>
+        .lab-table { width:100%; border-collapse:collapse; font-size:13px; }
+        .lab-table th { background:var(--bg-light,#f5f6fa); padding:8px 10px; text-align:left; border-bottom:2px solid var(--border); font-weight:600; white-space:nowrap; }
+        .lab-table td { padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:middle; }
+        .lab-table tr:last-child td { border-bottom:none; }
+        .lab-table .td-num { width:44px; color:var(--text-muted); font-size:12px; }
+        .lab-table .td-name { width:35%; }
+        .lab-table .td-ref { color:var(--text-muted); font-size:12px; line-height:1.4; }
+        .lab-table .td-result { width:200px; }
+        .lab-table input.result-input { width:100%; padding:6px 10px; border:1px solid var(--border); border-radius:6px; font-size:13px; background:var(--input-bg,#fff); }
+        .lab-table input.result-input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 2px rgba(99,102,241,0.1); }
+        </style>
+        <div style="overflow-x:auto;">
+            <table class="lab-table">
+                <thead>
+                    <tr>
+                        <th class="td-num">#</th>
+                        <th class="td-name">Xizmat nomi</th>
+                        <th class="td-ref">Referens qiymatlari</th>
+                        <th class="td-result">Natija</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for service in lab_visit.lab_services.all %}
+                    <tr>
+                        <td class="td-num">{{ service.service_number }}</td>
+                        <td class="td-name">{{ service.service_name }}</td>
+                        <td class="td-ref">{{ ref_values|get_item:service.pk }}</td>
+                        <td class="td-result">
+                            <input type="text" name="result_{{ service.pk }}" class="result-input" value="{{ service.result|default:'' }}" placeholder="Natija...">
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:20px;padding:0 16px 16px;">
+            <button type="submit" class="btn btn-secondary">Saqlash</button>
+            <button type="submit" name="action" value="done" class="btn btn-success">Tayyor</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

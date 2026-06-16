@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -m venv venv)",
+      "Bash(source venv/bin/activate)",
+      "Bash(pip install django pillow --quiet)",
+      "Bash(django-admin startproject crm_project .)",
+      "Bash(python manage.py startapp clinic)",
+      "Bash(python manage.py makemigrations clinic)",
+      "Bash(python manage.py migrate)",
+      "Bash(python seed_data.py)",
+      "mcp__Claude_Preview__preview_start",
+      "Bash(sqlite3 /Users/iskandarodilov/Desktop/CRM/db.sqlite3 \"SELECT name FROM sqlite_master WHERE type=''table'' AND name LIKE ''django_migrations'';\")",
+      "Bash(python manage.py makemigrations --check)",
+      "Bash(python manage.py showmigrations clinic)",
+      "Bash(python manage.py migrate --run-syncdb)",
+      "Bash(lsof -ti:8000)",
+      "Bash(xargs kill -9)",
+      "Bash(python -c \":*)",
+      "Bash(DJANGO_SETTINGS_MODULE=crm_project.settings python -c \":*)",
+      "Bash(python manage.py makemigrations)",
+      "Bash(pip install whitenoise)",
+      "Bash(pip show whitenoise)",
+      "Bash(python manage.py collectstatic --noinput)",
+      "Bash(source /Users/iskandarodilov/Desktop/CRM/venv/bin/activate)",
+      "Bash(pip install openpyxl openai)",
+      "Bash(python manage.py makemigrations clinic --empty -n migrate_visit_services)"
+    ]
+  }
+}

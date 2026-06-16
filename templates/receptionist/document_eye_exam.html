@@ -1,0 +1,105 @@
+<style>
+.a4-form { font-family: 'Times New Roman', serif; font-size: 12px; color: #000; line-height: 1.4; }
+.a4-form h2 { text-align: center; font-size: 16px; margin: 0 0 10px; }
+.a4-form h3 { font-size: 13px; margin: 8px 0 4px; }
+.a4-form table { width: 100%; border-collapse: collapse; margin: 6px 0; }
+.a4-form table th, .a4-form table td { border: 1px solid #000; padding: 3px 6px; font-size: 11px; }
+.a4-form table th { background: #f5f5f5; text-align: center; font-weight: bold; }
+.a4-form .info-row { display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 12px; }
+.a4-form .field-line { margin-bottom: 3px; }
+.a4-form .field-label { font-weight: bold; }
+@media print { @page { size: A4 portrait; margin: 10mm; } }
+</style>
+<div class="a4-form">
+    <div style="text-align:center;margin-bottom:6px;">
+        <strong>OPTIMED</strong> ko'z salomatligi markazi
+    </div>
+    <h2>Ko'z ko'rigi (Осмотр глаз) <span style="font-size:11px;color:#888;font-weight:normal;font-style:italic;">— EURO standart</span></h2>
+    <div class="info-row">
+        <span><span class="field-label">Protokol:</span> {{ doc.protocol_number }}</span>
+        <span><span class="field-label">Sana:</span> {{ doc.created_at|date:"d.m.Y H:i" }}</span>
+    </div>
+    <div class="info-row">
+        <span><span class="field-label">Bemor:</span> {{ doc.patient.surname }} {{ doc.patient.name }}</span>
+        <span><span class="field-label">Tug'ilgan sana:</span> {{ doc.patient.birth_date|date:"d.m.Y"|default:"—" }}</span>
+    </div>
+    <div class="info-row">
+        <span><span class="field-label">Shifokor:</span> {% if doc.doctor %}{{ doc.doctor.full_name }}{% else %}—{% endif %}</span>
+        <span><span class="field-label">Filial:</span> {{ doc.filial|default:"Optimed" }}</span>
+    </div>
+
+    {% if doc.koz_anamezi %}
+    <div class="field-line"><span class="field-label">Ko'z anamnezi:</span> {{ doc.koz_anamezi }}</div>
+    {% endif %}
+
+    <h3>Refraktsiya (Рефракция)</h3>
+    <table>
+        <tr><th></th><th colspan="3">Refraktsiya</th><th colspan="3">Sub. Refraktsiya</th><th colspan="3">Sik. Refraktsiya</th></tr>
+        <tr><th></th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SPH</th><th>CYL</th><th>AXIS</th><th>SPH</th><th>CYL</th><th>AXIS</th></tr>
+        <tr><td><strong>OD (o'ng)</strong></td>
+            <td>{{ doc.ref_ong_sph }}</td><td>{{ doc.ref_ong_cyl }}</td><td>{{ doc.ref_ong_axis }}</td>
+            <td>{{ doc.sub_ref_ong_sph }}</td><td>{{ doc.sub_ref_ong_cyl }}</td><td>{{ doc.sub_ref_ong_axis }}</td>
+            <td>{{ doc.sik_ref_ong_sph }}</td><td>{{ doc.sik_ref_ong_cyl }}</td><td>{{ doc.sik_ref_ong_axis }}</td>
+        </tr>
+        <tr><td><strong>OS (chap)</strong></td>
+            <td>{{ doc.ref_chap_sph }}</td><td>{{ doc.ref_chap_cyl }}</td><td>{{ doc.ref_chap_axis }}</td>
+            <td>{{ doc.sub_ref_chap_sph }}</td><td>{{ doc.sub_ref_chap_cyl }}</td><td>{{ doc.sub_ref_chap_axis }}</td>
+            <td>{{ doc.sik_ref_chap_sph }}</td><td>{{ doc.sik_ref_chap_cyl }}</td><td>{{ doc.sik_ref_chap_axis }}</td>
+        </tr>
+    </table>
+
+    <h3>Ko'rish o'tkirligi (Острота зрения)</h3>
+    <table>
+        <tr><th></th><th>Tuzatilmagan</th><th>Tuzatilgan</th></tr>
+        <tr><td><strong>OD (o'ng)</strong></td><td>{{ doc.tuzatilmagan_korish_ong }}</td><td>{{ doc.tuzatilgan_korish_ong }}</td></tr>
+        <tr><td><strong>OS (chap)</strong></td><td>{{ doc.tuzatilmagan_korish_chap }}</td><td>{{ doc.tuzatilgan_korish_chap }}</td></tr>
+    </table>
+
+    <h3>Ko'z tekshiruvi (Осмотр)</h3>
+    <table>
+        <tr><th></th><th>OD (o'ng)</th><th>OS (chap)</th></tr>
+        <tr><td><strong>Old segment</strong></td><td>{{ doc.old_segment_ong }}</td><td>{{ doc.old_segment_chap }}</td></tr>
+        <tr><td><strong>Orqa segment</strong></td><td>{{ doc.orqa_segment_ong }}</td><td>{{ doc.orqa_segment_chap }}</td></tr>
+        <tr><td><strong>Ko'z bosimi</strong></td><td>{{ doc.koz_bosimi_ong }}</td><td>{{ doc.koz_bosimi_chap }}</td></tr>
+    </table>
+
+    {% if doc.oyku %}
+    <div class="field-line"><span class="field-label">O'yku:</span> {{ doc.oyku }}</div>
+    {% endif %}
+
+    <h3>Retsept — Uzoqqa ko'rish (Рецепт для дали)</h3>
+    <table>
+        <tr><th></th><th>SPH</th><th>CYL</th><th>AXIS</th></tr>
+        <tr><td><strong>OD</strong></td><td>{{ doc.uzoq_ong_sph }}</td><td>{{ doc.uzoq_ong_cyl }}</td><td>{{ doc.uzoq_ong_axis }}</td></tr>
+        <tr><td><strong>OS</strong></td><td>{{ doc.uzoq_chap_sph }}</td><td>{{ doc.uzoq_chap_cyl }}</td><td>{{ doc.uzoq_chap_axis }}</td></tr>
+    </table>
+
+    <h3>Retsept — Yaqinga ko'rish (Рецепт для близи)</h3>
+    <table>
+        <tr><th></th><th>SPH</th><th>CYL</th><th>AXIS</th></tr>
+        <tr><td><strong>OD</strong></td><td>{{ doc.yaqin_ong_sph }}</td><td>{{ doc.yaqin_ong_cyl }}</td><td>{{ doc.yaqin_ong_axis }}</td></tr>
+        <tr><td><strong>OS</strong></td><td>{{ doc.yaqin_chap_sph }}</td><td>{{ doc.yaqin_chap_cyl }}</td><td>{{ doc.yaqin_chap_axis }}</td></tr>
+    </table>
+
+    <h3>Kontakt linza (Контактные линзы)</h3>
+    <table>
+        <tr><th></th><th>Linza</th><th>Diametr</th><th>Radius</th><th>Dioptriya</th></tr>
+        <tr><td><strong>OD</strong></td><td>{{ doc.linza_ong }}</td><td>{{ doc.diametr_ong }}</td><td>{{ doc.radius_ong }}</td><td>{{ doc.dioptriya_ong }}</td></tr>
+        <tr><td><strong>OS</strong></td><td>{{ doc.linza_chap }}</td><td>{{ doc.diametr_chap }}</td><td>{{ doc.radius_chap }}</td><td>{{ doc.dioptriya_chap }}</td></tr>
+    </table>
+
+    {% if doc.icd_kodi or doc.icd_nomi %}
+    <h3>Tashxis (Диагноз)</h3>
+    <div class="field-line"><span class="field-label">ICD kodi:</span> {{ doc.icd_kodi }} — {{ doc.icd_nomi }}</div>
+    {% if doc.tashxis_turi %}<div class="field-line"><span class="field-label">Tashxis turi:</span> {{ doc.tashxis_turi }}</div>{% endif %}
+    {% endif %}
+
+    {% if doc.yonalish %}
+    <div class="field-line"><span class="field-label">Yo'nalish:</span> {{ doc.yonalish }}</div>
+    {% endif %}
+
+    <div style="margin-top:30px;display:flex;justify-content:space-between;">
+        <div>Shifokor imzosi: _______________</div>
+        <div>Sana: {{ doc.created_at|date:"d.m.Y" }}</div>
+    </div>
+</div>

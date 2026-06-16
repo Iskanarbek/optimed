@@ -1,0 +1,233 @@
+{% extends 'base.html' %}
+{% block title %}Справочные показатели — Optimed CRM{% endblock %}
+{% block nav_documents %}active{% endblock %}
+
+{% block content %}
+<style>
+.ref-page { max-width: 900px; }
+.ref-section { background: var(--card-bg, #fff); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 20px; overflow: hidden; }
+.ref-section-header { background: var(--primary, #2563eb); color: #fff; padding: 10px 16px; font-weight: 600; font-size: 14px; }
+.ref-section-header .sub { font-size: 11px; opacity: 0.8; font-weight: 400; margin-left: 8px; }
+.ref-body { padding: 14px 16px; }
+.ref-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-bottom: 8px; }
+.ref-table th { background: var(--bg, #f8f9fa); padding: 5px 8px; border: 1px solid var(--border); font-weight: 600; text-align: left; font-size: 11px; }
+.ref-table td { padding: 4px 8px; border: 1px solid var(--border); vertical-align: top; }
+.ref-table tr:nth-child(even) { background: var(--bg, #f8f9fa); }
+.ref-norm { color: #166534; font-weight: 500; }
+.ref-tag { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 600; margin: 1px; }
+.ref-tag.diag { background: #e0f2fe; color: #0369a1; }
+.ref-tag.op { background: #fef3c7; color: #92400e; }
+.ref-tag.med { background: #dcfce7; color: #166534; }
+.ref-tag.meas { background: #f3e8ff; color: #7c3aed; }
+.ref-sub { font-size: 10px; color: var(--text-muted); font-style: italic; }
+h2.ref-title { font-size: 20px; margin-bottom: 6px; }
+.ref-intro { color: var(--text-muted); font-size: 13px; margin-bottom: 20px; }
+@media print {
+    .sidebar, .topbar, .page-header { display: none !important; }
+    .main-content { padding: 0 !important; }
+    .ref-section { border: 1px solid #ccc !important; margin-bottom: 12px !important; break-inside: avoid; }
+    .ref-section-header { background: #333 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { margin: 10mm; }
+}
+</style>
+
+<div class="page-header">
+    <div>
+        <h1>Справочные показатели</h1>
+        <p>Клинические нормы и стандартные значения для заполнения документов</p>
+    </div>
+    <button class="btn btn-primary" onclick="window.print()">Chop etish</button>
+</div>
+
+<div class="ref-page">
+
+<!-- ═══════════════════════════ LASIK ═══════════════════════════ -->
+<div class="ref-section">
+    <div class="ref-section-header">LASIK — Лазерная коррекция зрения <span class="sub">Lazer ko'rish korreksiyasi</span></div>
+    <div class="ref-body">
+
+        <b>Типы операций / Operatsiya turlari:</b>
+        <div style="margin:6px 0 10px;">
+            <span class="ref-tag op">LASIK TENEO 317</span>
+            <span class="ref-tag op">TENEO 317 PRK</span>
+            <span class="ref-tag op">РТК</span>
+            <span class="ref-tag op">доKоррекция</span>
+            <span style="font-size:11px;color:var(--text-muted);margin-left:6px;">+ OCTAVIUS (опция)</span>
+        </div>
+
+        <b>Нормальные значения ВГД / Normal VKB qiymatlari:</b>
+        <table class="ref-table" style="margin-top:4px;">
+            <tr><th>Показатель</th><th>Норма</th><th>Примечание</th></tr>
+            <tr><td>ВГД (внутриглазное давление)</td><td class="ref-norm">10–21 мм рт.ст.</td><td>По методу Гольдмана; &gt;22 — подозрение на глаукому</td></tr>
+            <tr><td>Пахиметрия (толщина роговицы)</td><td class="ref-norm">510–560 мкм</td><td>Минимум для LASIK: 480 мкм</td></tr>
+        </table>
+
+        <b>Острота зрения / Ko'rish o'tkirligi:</b>
+        <table class="ref-table" style="margin-top:4px;">
+            <tr><th>Значение Visus</th><th>Интерпретация</th></tr>
+            <tr><td>1.0 — 1.5</td><td class="ref-norm">Норма / Нормa</td></tr>
+            <tr><td>0.5 — 0.9</td><td style="color:#b45309;">Незначительное снижение</td></tr>
+            <tr><td>0.1 — 0.4</td><td style="color:#dc2626;">Умеренное снижение</td></tr>
+            <tr><td>&lt; 0.1</td><td style="color:#dc2626;">Значительное снижение</td></tr>
+            <tr><td>0.02 — счёт пальцев</td><td style="color:#dc2626;">Тяжёлая потеря зрения</td></tr>
+        </table>
+
+        <b>Рефракция / Refraksiya (Sph, Cyl):</b>
+        <table class="ref-table" style="margin-top:4px;">
+            <tr><th>Параметр</th><th>Норма (эмметропия)</th><th>Диапазон для LASIK</th></tr>
+            <tr><td>Sph (сферa)</td><td class="ref-norm">0.00 Д</td><td>−12.0 до +6.0 Д</td></tr>
+            <tr><td>Cyl (цилиндр)</td><td class="ref-norm">0.00 Д</td><td>до −6.0 Д</td></tr>
+            <tr><td>Axis (ось)</td><td>—</td><td>1° – 180°</td></tr>
+        </table>
+
+        <b>Стандартный текст состояния после операции:</b>
+        <div style="border:1px solid var(--border);padding:6px 10px;border-radius:4px;font-style:italic;font-size:12px;margin-top:4px;">
+            Глаз спокоен, лоскут прилегает, среды прозрачные
+        </div>
+
+        <b style="display:block;margin-top:8px;">Стандартные рекомендации:</b>
+        <div style="font-size:12px;margin-top:2px;">
+            1 — наблюдение офтальмолога &nbsp;·&nbsp; 2 — ограничение физической нагрузки &nbsp;·&nbsp;
+            3 — антисептические капли 4×/день &nbsp;·&nbsp; 4 — запрет плавания / сауны 1 мес.
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════ КОСОГЛАЗИЕ ═══════════════════════════ -->
+<div class="ref-section">
+    <div class="ref-section-header" style="background:#7c3aed;">Косоглазие — Хирургия глазодвигательных мышц <span class="sub">Ko'squlilik jarrohlik operatsiyasi</span></div>
+    <div class="ref-body">
+
+        <b>Виды косоглазия / Ko'squlilik turlari:</b>
+        <div style="margin:6px 0 10px;">
+            <span class="ref-tag diag">Эзофория</span>
+            <span class="ref-tag diag">Экзофория</span>
+            <span class="ref-tag diag">Эзотропия</span>
+            <span class="ref-tag diag">Экзотропия</span>
+            <span class="ref-tag diag">С вертикальным компонентом</span>
+            <span class="ref-tag diag">Паралитическое косоглазие</span>
+            <span class="ref-tag diag">OHD</span>
+            <span class="ref-tag diag">DVD</span>
+            <span class="ref-tag diag">A-синдром</span>
+            <span class="ref-tag diag">V-синдром</span>
+            <span class="ref-tag diag">Y-синдром</span>
+            <span class="ref-tag diag">X-синдром</span>
+        </div>
+
+        <b>Мышцы глаза / Ko'z mushaklari:</b>
+        <table class="ref-table" style="margin-top:4px;">
+            <tr><th>Мышца (rus)</th><th>Сокращение</th><th>Функция</th></tr>
+            <tr><td>Musculus rectus medialis</td><td>m.rect.med</td><td>Аддукция (кнутри)</td></tr>
+            <tr><td>Musculus rectus lateralis</td><td>m.rect.lat</td><td>Абдукция (кнаружи)</td></tr>
+            <tr><td>Musculus rectus superior</td><td>m.rect.sup</td><td>Подъём, интроторсия</td></tr>
+            <tr><td>Musculus rectus inferior</td><td>m.rect.inf</td><td>Опускание, экстроторсия</td></tr>
+            <tr><td>Musculus obliquus superior</td><td>m.obliq.sup</td><td>Опускание, интроторсия</td></tr>
+            <tr><td>Musculus obliquus inferior</td><td>m.obliq.inf</td><td>Подъём, экстроторсия</td></tr>
+        </table>
+
+        <b>Нормы отклонения / Deviyatsiya normalari:</b>
+        <table class="ref-table" style="margin-top:4px;">
+            <tr><th>Dev° (призменные диоптрии / градусы)</th><th>Степень</th></tr>
+            <tr><td>1–10 пр.дптр / &lt;5°</td><td class="ref-norm">Малый угол</td></tr>
+            <tr><td>11–20 пр.дптр / 5–15°</td><td style="color:#b45309;">Средний угол</td></tr>
+            <tr><td>&gt;20 пр.дптр / &gt;15°</td><td style="color:#dc2626;">Большой угол</td></tr>
+        </table>
+
+        <b>Типовые дозы операций:</b>
+        <table class="ref-table" style="margin-top:4px;">
+            <tr><th>Операция</th><th>Типичная доза (мм)</th></tr>
+            <tr><td>Рецессия m.rectus medialis</td><td>3–7 мм</td></tr>
+            <tr><td>Рецессия m.rectus lateralis</td><td>5–9 мм</td></tr>
+            <tr><td>Резекция m.rectus medialis</td><td>3–7 мм</td></tr>
+            <tr><td>Резекция m.rectus lateralis</td><td>4–8 мм</td></tr>
+        </table>
+
+        <b style="display:block;margin-top:8px;">Стандартные рекомендации после операции:</b>
+        <div style="font-size:12px;margin-top:2px;">
+            1 — Флоксацин (офлоксацин) глазные капли 1 кап × 4 раза/день &nbsp;·&nbsp;
+            2 — Повторный осмотр через 7 дней
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════ ОПЕРАЦИОННАЯ ВЫПИСКА ═══════════════════════════ -->
+<div class="ref-section">
+    <div class="ref-section-header" style="background:#0891b2;">Операционная выписка — Послеоперационный период <span class="sub">Operatsion ko'chirma</span></div>
+    <div class="ref-body">
+
+        <b>Виды анестезии / Narkoz turlari:</b>
+        <div style="margin:6px 0 10px;">
+            <span class="ref-tag op">В/в наркоз</span>
+            <span class="ref-tag op">Местная анестезия</span>
+            <span class="ref-tag op">Ретробулбарная блокада</span>
+            <span class="ref-tag op">Перибулбарная блокада</span>
+        </div>
+
+        <b>Острота зрения при поступлении / выписке:</b>
+        <table class="ref-table" style="margin-top:4px;">
+            <tr><th>Visus</th><th>Описание</th></tr>
+            <tr><td>1.0</td><td class="ref-norm">Норма</td></tr>
+            <tr><td>0.5 с/к</td><td>0.5 с коррекцией</td></tr>
+            <tr><td>0.1 н/к</td><td>0.1 без коррекции</td></tr>
+            <tr><td>счёт пальцев / с.п.</td><td style="color:#dc2626;">Низкое зрение</td></tr>
+            <tr><td>движение руки</td><td style="color:#dc2626;">Очень низкое</td></tr>
+            <tr><td>светоощущение</td><td style="color:#dc2626;">Только восприятие света</td></tr>
+        </table>
+
+        <b>Типичные операции (Operatsiya turlari):</b>
+        <div style="margin:4px 0 8px;font-size:12px;">
+            <span class="ref-tag op">Факоэмульсификация + ИОЛ</span>
+            <span class="ref-tag op">LASIK / LASEK</span>
+            <span class="ref-tag op">Трабекулэктомия</span>
+            <span class="ref-tag op">Витрэктомия</span>
+            <span class="ref-tag op">Блефаропластика</span>
+            <span class="ref-tag op">Резекция / Рецессия мышцы</span>
+        </div>
+
+        <b>Стандартные рекомендации при выписке:</b>
+        <table class="ref-table" style="margin-top:4px;">
+            <tr><th>Препарат / лечение</th><th>Срок / доза</th></tr>
+            <tr><td>Антибиотик (глазные капли)</td><td>10 дней, 4×/день</td></tr>
+            <tr><td>НПВС (диклофенак, индометацин)</td><td>1 месяц, 3×/день</td></tr>
+            <tr><td>ГКС (дексаметазон) по схеме</td><td>По убыванию: 4→3→2→1×/день</td></tr>
+            <tr><td>Кератопротектор (искусственные слёзы)</td><td>По потребности</td></tr>
+            <tr><td>Системный антибиотик</td><td>По показаниям, 5–7 дней</td></tr>
+            <tr><td>Витамины (A, E, C, лютеин)</td><td>По показаниям</td></tr>
+        </table>
+
+        <b style="display:block;margin-top:8px;">Стандартный интервал повторного осмотра:</b>
+        <div style="font-size:12px;margin-top:2px;">
+            Катаракта: 1 день, 7 дней, 1 мес &nbsp;·&nbsp;
+            LASIK: 1 день, 7 дней &nbsp;·&nbsp;
+            Косоглазие: 7 дней, 1 мес &nbsp;·&nbsp;
+            Глаукома: 1 нед, 1 мес
+        </div>
+    </div>
+</div>
+
+<!-- ═══════════════════════════ ЛАБОРАТОРНЫЕ НОРМЫ ═══════════════════════════ -->
+<div class="ref-section">
+    <div class="ref-section-header" style="background:#166534;">Лабораторные показатели — Нормы <span class="sub">Laboratoriya me'yoriy ko'rsatkichlari</span></div>
+    <div class="ref-body">
+        <table class="ref-table">
+            <tr><th>Показатель</th><th>Норма (мужчины)</th><th>Норма (женщины)</th><th>Единица</th></tr>
+            <tr><td>Гемоглобин (Hb)</td><td class="ref-norm">130–170</td><td class="ref-norm">120–150</td><td>г/л</td></tr>
+            <tr><td>Эритроциты</td><td class="ref-norm">4.0–5.5</td><td class="ref-norm">3.7–4.7</td><td>×10¹²/л</td></tr>
+            <tr><td>Лейкоциты</td><td colspan="2" class="ref-norm" style="text-align:center;">4.0–9.0</td><td>×10⁹/л</td></tr>
+            <tr><td>Тромбоциты</td><td colspan="2" class="ref-norm" style="text-align:center;">150–400</td><td>×10⁹/л</td></tr>
+            <tr><td>СОЭ</td><td class="ref-norm">1–15</td><td class="ref-norm">2–20</td><td>мм/ч</td></tr>
+            <tr><td>Глюкоза крови</td><td colspan="2" class="ref-norm" style="text-align:center;">3.9–6.1</td><td>ммоль/л</td></tr>
+            <tr><td>Мочевина</td><td colspan="2" class="ref-norm" style="text-align:center;">2.5–8.3</td><td>ммоль/л</td></tr>
+            <tr><td>Креатинин</td><td class="ref-norm">62–115</td><td class="ref-norm">53–97</td><td>мкмоль/л</td></tr>
+            <tr><td>АЛТ</td><td colspan="2" class="ref-norm" style="text-align:center;">до 40</td><td>Ед/л</td></tr>
+            <tr><td>АСТ</td><td colspan="2" class="ref-norm" style="text-align:center;">до 40</td><td>Ед/л</td></tr>
+            <tr><td>Общий белок</td><td colspan="2" class="ref-norm" style="text-align:center;">65–85</td><td>г/л</td></tr>
+            <tr><td>Протромбиновое время (ПТВ)</td><td colspan="2" class="ref-norm" style="text-align:center;">11–15</td><td>сек</td></tr>
+            <tr><td>МНО (INR)</td><td colspan="2" class="ref-norm" style="text-align:center;">0.8–1.2</td><td></td></tr>
+            <tr><td>Группа крови</td><td colspan="2" style="text-align:center;">I(O), II(A), III(B), IV(AB)</td><td>Rh+/−</td></tr>
+        </table>
+    </div>
+</div>
+
+</div><!-- ref-page -->
+{% endblock %}

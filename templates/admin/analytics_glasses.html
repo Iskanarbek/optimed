@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Ko'zoynak tahlili — Optimed CRM{% endblock %}
+{% block nav_analytics_glasses %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Ko'zoynak tahlili</h1>
+        <p>Ko'zoynak sotuvlari va daromad statistikasi</p>
+    </div>
+    <div class="period-filter">
+        <a href="?period=month" class="period-btn {% if period == 'month' %}active{% endif %}">Oy</a>
+        <a href="?period=6m" class="period-btn {% if period == '6m' %}active{% endif %}">6 oy</a>
+        <a href="?period=year" class="period-btn {% if period == 'year' %}active{% endif %}">Yil</a>
+        <a href="?period=all" class="period-btn {% if period == 'all' %}active{% endif %}">Hammasi</a>
+    </div>
+</div>
+
+<div class="stats-grid">
+    <div class="stat-card accent animate-in">
+        <div class="stat-label">Jami sotilgan</div>
+        <div class="stat-value">{{ total_sold }} dona</div>
+    </div>
+    <div class="stat-card accent animate-in">
+        <div class="stat-label">Jami daromad</div>
+        <div class="stat-value">{{ total_revenue|format_som }} so'm</div>
+    </div>
+    <div class="stat-card success animate-in">
+        <div class="stat-label">Sof foyda</div>
+        <div class="stat-value">{{ total_profit|format_som }} so'm</div>
+    </div>
+</div>
+
+<div class="card animate-in">
+    <div class="card-header"><h3>Sotuvlar ro'yxati</h3></div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>Model</th>
+                    <th>Brend</th>
+                    <th>Soni</th>
+                    <th>Sotish narxi</th>
+                    <th>Tannarx</th>
+                    <th>Foyda</th>
+                    <th>Sana</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for sale in sales %}
+                <tr>
+                    <td><strong>{{ sale.glasses.model_name }}</strong></td>
+                    <td>{{ sale.glasses.brand }}</td>
+                    <td>{{ sale.quantity }}</td>
+                    <td>{{ sale.sell_price|format_som }} so'm</td>
+                    <td>{{ sale.cost_price|format_som }} so'm</td>
+                    <td><strong>{{ sale.total_profit|format_som }} so'm</strong></td>
+                    <td>{{ sale.created_at|date:"d.m.Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="7" class="empty-state"><p>Sotuvlar mavjud emas</p></td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

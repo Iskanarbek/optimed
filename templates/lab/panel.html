@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Laboratoriya — Optimed CRM{% endblock %}
+{% block nav_lab %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Laboratoriya</h1>
+        <p>Tahlillar va natijalar</p>
+    </div>
+</div>
+
+<!-- ACTIVE LAB VISITS -->
+<div class="card animate-in" style="border-left:4px solid var(--primary);">
+    <div class="card-header">
+        <h3>Faol tahlillar</h3>
+        <span class="badge badge-info">{{ lab_visits|length }} ta</span>
+    </div>
+    {% for lv in lab_visits %}
+    <div class="patient-item">
+        <div class="patient-info">
+            <div class="patient-avatar">{{ lv.patient.name|first }}{{ lv.patient.surname|first }}</div>
+            <div>
+                <div class="patient-name">{{ lv.patient.full_name }}</div>
+                <div class="patient-phone">
+                    {{ lv.lab_services.count }} ta xizmat &middot; {{ lv.created_at|date:"d.m.Y H:i" }}
+                </div>
+            </div>
+        </div>
+        <div class="patient-actions">
+            {% if lv.status == 'waiting' %}
+            <span class="badge badge-warning">Kutmoqda</span>
+            {% elif lv.status == 'in_progress' %}
+            <span class="badge badge-info">Jarayonda</span>
+            {% endif %}
+            <a href="{% url 'lab_visit_detail' lv.pk %}" class="btn btn-primary btn-sm">Batafsil</a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state" style="padding:30px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6v2H9zM7 5l-2 13a2 2 0 002 2h10a2 2 0 002-2L17 5"/><path d="M7 12h10"/></svg>
+        <p>Hozircha faol tahlillar yo'q</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- COMPLETED LAB VISITS -->
+<div class="card animate-in" style="border-left:4px solid var(--success);">
+    <div class="card-header">
+        <h3>Tayyor tahlillar</h3>
+        <span class="badge badge-success">{{ done_visits|length }} ta</span>
+    </div>
+    {% for lv in done_visits %}
+    <div class="patient-item">
+        <div class="patient-info">
+            <div class="patient-avatar">{{ lv.patient.name|first }}{{ lv.patient.surname|first }}</div>
+            <div>
+                <div class="patient-name">{{ lv.patient.full_name }}</div>
+                <div class="patient-phone">
+                    {{ lv.lab_services.count }} ta xizmat &middot; {{ lv.completed_at|date:"d.m.Y H:i" }}
+                </div>
+            </div>
+        </div>
+        <div class="patient-actions">
+            <span class="badge badge-success">Tayyor</span>
+            <a href="{% url 'lab_visit_detail' lv.pk %}" class="btn btn-secondary btn-sm">Batafsil</a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="empty-state" style="padding:30px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <p>Tayyor tahlillar yo'q</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

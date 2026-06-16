@@ -1,0 +1,95 @@
+{% load clinic_filters %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <title>Chek - {{ patient.full_name }}</title>
+    <style>
+        @media print { .no-print { display: none !important; } body { margin: 0; padding: 20px; } }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; max-width: 420px; margin: 40px auto; padding: 20px; }
+        .receipt { border: 2px solid #1a1a2e; border-radius: 12px; padding: 28px; }
+        .receipt-logo { text-align: center; font-size: 22px; font-weight: 800; letter-spacing: 2px; color: #1a1a2e; }
+        .receipt-sub { text-align: center; font-size: 11px; color: #718096; letter-spacing: 3px; text-transform: uppercase; margin-top: 4px; }
+        .receipt-divider { border-top: 2px dashed #e2e8f0; margin: 16px 0; }
+        .receipt-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 14px; }
+        .receipt-label { color: #718096; }
+        .receipt-value { font-weight: 600; color: #1a1a2e; }
+        h4.section { font-size: 11px; text-transform: uppercase; color: #718096; letter-spacing: 1px; margin: 12px 0 8px; }
+        .svc-item { display: flex; justify-content: space-between; padding: 4px 0; font-size: 13px; }
+        .discount { color: #e53e3e; }
+        .total { font-size: 18px; font-weight: 700; border-top: 2px solid #1a1a2e; margin-top: 12px; padding-top: 12px; display: flex; justify-content: space-between; }
+        .receipt-date { font-size: 11px; color: #718096; text-align: center; margin-top: 16px; }
+        .btn-row { display: flex; gap: 12px; margin-top: 24px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; text-align: center; text-decoration: none; display: block; }
+        .btn-dark { background: #1a1a2e; color: #fff; }
+        .btn-light { background: #e2e8f0; color: #1a1a2e; }
+    </style>
+</head>
+<body>
+    <div class="receipt">
+        <div class="receipt-logo">OPTIMED</div>
+        <div class="receipt-sub">Ko'z shifoxonasi</div>
+
+        <div class="receipt-divider"></div>
+
+        <div class="receipt-row">
+            <span class="receipt-label">Xona:</span>
+            <span class="receipt-value">{{ doctor.room_number|default:"—" }}</span>
+        </div>
+        <div class="receipt-row">
+            <span class="receipt-label">Doktor:</span>
+            <span class="receipt-value">Dr. {{ doctor.full_name }}</span>
+        </div>
+        <div class="receipt-row">
+            <span class="receipt-label">Navbat:</span>
+            <span class="receipt-value">#{{ queue.number|default:"—" }}</span>
+        </div>
+        <div class="receipt-row">
+            <span class="receipt-label">Bemor:</span>
+            <span class="receipt-value">{{ patient.full_name }}</span>
+        </div>
+
+        <div class="receipt-divider"></div>
+
+        <h4 class="section">Xizmatlar</h4>
+        {% for vs in services %}
+        <div class="svc-item">
+            <span>{{ vs.service.name }}</span>
+            <span>{{ vs.price_at_time|format_som }} so'm</span>
+        </div>
+        {% empty %}
+        <div class="svc-item"><span>—</span></div>
+        {% endfor %}
+
+        {% if visit.procedures.exists %}
+        <h4 class="section">Protseduralar</h4>
+        {% for proc in visit.procedures.all %}
+        <div class="svc-item">
+            <span>{{ proc.description|truncatewords:8 }} ({{ proc.total_repetitions }}x)</span>
+            <span>{{ proc.total_price|format_som }} so'm</span>
+        </div>
+        {% endfor %}
+        {% endif %}
+
+        {% if visit.discount_amount > 0 %}
+        <div class="svc-item discount">
+            <span>Chegirma{% if visit.discount_reason %} ({{ visit.discount_reason }}){% endif %}</span>
+            <span>-{{ visit.discount_amount|format_som }} so'm</span>
+        </div>
+        {% endif %}
+
+        <div class="total">
+            <span>JAMI:</span>
+            <span>{{ visit.final_price|format_som }} so'm</span>
+        </div>
+
+        <div class="receipt-date">{{ visit.created_at|date:"d.m.Y H:i" }}</div>
+    </div>
+
+    <div class="btn-row no-print">
+        <button class="btn btn-dark" onclick="window.print()">Chop etish</button>
+        <a href="{% url 'doctor_patient_detail' doctor.pk patient.pk %}" class="btn btn-light">Ortga</a>
+    </div>
+</body>
+</html>
