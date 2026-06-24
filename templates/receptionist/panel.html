@@ -252,7 +252,7 @@
                     <select name="doctor" class="form-control" onchange="onDoctorChange(this, 'addServicesContainer', 'addServicesGrid', 'addRoomNumber')">
                         <option value="">— Doktorni tanlang —</option>
                         {% for d in doctors %}
-                        <option value="{{ d.pk }}" data-service-ids="[{% for svc in d.services.all %}{{ svc.pk }}{% if not forloop.last %},{% endif %}{% endfor %}]" data-service-count="{{ d.services.count }}" data-room="{{ d.room_number }}">Dr. {{ d.full_name }}{% for svc in d.services.all %}{% if forloop.first %} — {% endif %}{{ svc.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</option>
+                        <option value="{{ d.pk }}" data-service-ids="[{% for svc in d.services.all %}{{ svc.pk }}{% if not forloop.last %},{% endif %}{% endfor %}]" data-service-count="{{ d.services.count }}" data-room="{{ d.room_number }}">Dr. {{ d.full_name }}{% for svc in d.services.all|slice:":2" %}{% if forloop.first %} — {% endif %}{{ svc.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if d.services.count > 2 %}...{% endif %}</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -337,7 +337,7 @@
                     <select name="doctor" class="form-control" onchange="onDoctorChange(this, 'redirectServicesContainer', 'redirectServicesGrid', '')">
                         <option value="">— Doktorni tanlang —</option>
                         {% for d in doctors %}
-                        <option value="{{ d.pk }}" data-service-ids="[{% for svc in d.services.all %}{{ svc.pk }}{% if not forloop.last %},{% endif %}{% endfor %}]" data-service-count="{{ d.services.count }}" data-room="{{ d.room_number }}">Dr. {{ d.full_name }}{% for svc in d.services.all %}{% if forloop.first %} — {% endif %}{{ svc.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</option>
+                        <option value="{{ d.pk }}" data-service-ids="[{% for svc in d.services.all %}{{ svc.pk }}{% if not forloop.last %},{% endif %}{% endfor %}]" data-service-count="{{ d.services.count }}" data-room="{{ d.room_number }}">Dr. {{ d.full_name }}{% for svc in d.services.all|slice:":2" %}{% if forloop.first %} — {% endif %}{{ svc.name }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if d.services.count > 2 %}...{% endif %}</option>
                         {% endfor %}
                     </select>
                 </div>

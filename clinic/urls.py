@@ -125,6 +125,8 @@ urlpatterns = [
     path('receptionist/documents/', views.receptionist_documents, name='receptionist_documents'),
     path('receptionist/documents/search/', views.receptionist_documents_search, name='receptionist_documents_search'),
     path('receptionist/documents/<str:form_type>/<int:pk>/', views.receptionist_document_view, name='receptionist_document_view'),
+    path('receptionist/tibbiy-yozuv/<int:visit_id>/print/', views.receptionist_tibbiy_yozuv_print, name='receptionist_tibbiy_yozuv_print'),
+    path('v/<uuid:token>/', views.visit_share_view, name='visit_share_view'),
 
     # Seller Panel
     path('seller/', views.seller_panel, name='seller_panel'),
@@ -135,10 +137,24 @@ urlpatterns = [
     path('seller/sales/', views.seller_sales, name='seller_sales'),
     path('seller/analytics/', views.seller_analytics, name='seller_analytics'),
 
+    # Optika Panel
+    path('optika/', views.optika_panel, name='optika_panel'),
+    path('optika/patient/<int:patient_id>/', views.optika_patient_detail, name='optika_patient_detail'),
+    path('optika/patient/<int:patient_id>/save-prescription/', views.optika_save_prescription, name='optika_save_prescription'),
+    path('optika/patient/<int:patient_id>/sell/', views.optika_sell, name='optika_sell'),
+    path('optika/check/<int:sale_id>/', views.optika_check, name='optika_check'),
+    path('optika/hisobot/', views.optika_hisobot, name='optika_hisobot'),
+
     # Laboratory Panel
     path('lab/', views.lab_panel, name='lab_panel'),
     path('lab/visit/<int:pk>/', views.lab_visit_detail, name='lab_visit_detail'),
     path('lab/visit/<int:pk>/save/', views.lab_save_results, name='lab_save_results'),
+    path('lab/boshqarish/', views.lab_boshqarish, name='lab_boshqarish'),
+    path('lab/boshqarish/add/', views.lab_service_add, name='lab_service_add'),
+    path('lab/boshqarish/<int:pk>/edit/', views.lab_service_edit, name='lab_service_edit'),
+    path('lab/boshqarish/<int:pk>/delete/', views.lab_service_delete, name='lab_service_delete'),
+    path('receptionist/visit/<int:visit_id>/add-attachment/', views.receptionist_add_attachment, name='receptionist_add_attachment'),
+    path('doctor/<int:doctor_id>/visit/<int:visit_id>/upload-attachment/', views.doctor_ajax_upload_attachment, name='doctor_ajax_upload_attachment'),
 
     # API
     path('api/analytics/overall/', views.api_analytics_overall, name='api_analytics_overall'),

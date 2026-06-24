@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 import datetime
+import uuid
 
 
 # ─── HELPER: Queue Number ───
@@ -209,6 +210,7 @@ class Visit(models.Model):
     doctor_rating = models.IntegerField(null=True, blank=True)
     clinic_rating = models.IntegerField(null=True, blank=True)
     rated = models.BooleanField(default=False)
+    share_token = models.UUIDField(default=uuid.uuid4, unique=True)
     created_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
@@ -314,6 +316,7 @@ class VisitAttachment(models.Model):
     """Multiple file attachments per visit."""
     visit = models.ForeignKey(Visit, on_delete=models.CASCADE, related_name='visit_attachments')
     file = models.FileField(upload_to='attachments/')
+    title = models.CharField(max_length=200, blank=True, default='')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -465,6 +468,37 @@ class GlassSale(models.Model):
     @property
     def total_profit(self):
         return (self.sell_price - self.discount_amount - self.cost_price) * self.quantity
+
+
+# ─── OPTIKA ───
+
+class OptikaPatientPrescription(models.Model):
+    """Optika-editable prescription per patient (pre-filled from latest visit)."""
+    patient = models.OneToOneField('Patient', on_delete=models.CASCADE, related_name='optika_prescription')
+    retsept_uzoq_od = models.CharField(max_length=200, blank=True, default='')
+    retsept_uzoq_os = models.CharField(max_length=200, blank=True, default='')
+    retsept_yaqin_od = models.CharField(max_length=200, blank=True, default='')
+    retsept_yaqin_os = models.CharField(max_length=200, blank=True, default='')
+    retsept_kontakt_od = models.CharField(max_length=200, blank=True, default='')
+    retsept_kontakt_os = models.CharField(max_length=200, blank=True, default='')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Retsept: {self.patient}"
+
+
+class OptikaSale(models.Model):
+    """A single optika sale — flexible items stored as JSON."""
+    patient = models.ForeignKey('Patient', on_delete=models.SET_NULL, null=True, blank=True, related_name='optika_sales')
+    items = models.JSONField(default=list)
+    total = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Optika sotish: {self.patient} — {self.total:,} so'm ({self.created_at:%d.%m.%Y})"
 
 
 # ─── EYE EXAMINATION DATA ───
@@ -846,3 +880,17 @@ class LabQueueNumber(models.Model):
 
     def __str__(self):
         return f"Lab #{self.number} ({self.date})"
+
+
+class LabServiceTemplate(models.Model):
+    """Editable lab service catalog managed by laborant."""
+    number = models.IntegerField(unique=True)
+    name = models.CharField(max_length=500)
+    price = models.IntegerField(default=0)
+    reference_value = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['number']
+
+    def __str__(self):
+        return f"#{self.number} {self.name}"

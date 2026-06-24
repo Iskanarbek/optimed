@@ -231,7 +231,7 @@
             <div class="form-overlay" id="fhTY{{ visit.pk }}" onclick="if(event.target===this)closeDocOverlay('fhTY{{ visit.pk }}')">
                 <div class="form-overlay-inner">
                     <div class="no-print" style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
-                        <button class="btn btn-primary btn-sm" onclick="window.print()">Chop etish</button>
+                        <button class="btn btn-primary btn-sm" onclick="window.open('/receptionist/tibbiy-yozuv/{{ visit.pk }}/print/?files=1','_blank')">Chop etish</button>
                         <button class="btn btn-secondary btn-sm" onclick="closeDocOverlay('fhTY{{ visit.pk }}')">✕ Yopish</button>
                     </div>
                     {% include 'receptionist/document_tibbiy_yozuv.html' with doc=visit %}

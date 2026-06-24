@@ -1,0 +1,261 @@
+{% load clinic_filters %}
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <title>Tibbiy yozuv — {{ doc.patient.surname }} {{ doc.patient.name }}</title>
+    <style>
+        body { margin: 10mm; font-family: 'Times New Roman', serif; font-size: 12.5px; color: #000; line-height: 1.45; }
+        h3 { font-size: 12.5px; margin: 6px 0 3px; font-weight: bold; border-bottom: 1px solid #999; padding-bottom: 2px; }
+        .row { display: flex; justify-content: space-between; margin-bottom: 3px; flex-wrap: wrap; gap: 3px; }
+        .fld { margin-bottom: 3px; }
+        .lbl { font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; margin: 4px 0; table-layout: fixed; }
+        table th, table td { border: 1px solid #888; padding: 3px 5px; font-size: 12px; vertical-align: top; word-wrap: break-word; overflow-wrap: break-word; white-space: normal; }
+        table th { background: #f0f0f0; text-align: center; font-weight: bold; }
+        .sig { display: flex; justify-content: space-between; margin-top: 12px; font-size: 12px; }
+        /* ── Attachment: each image on its own page ── */
+        .att-img-page {
+            page-break-before: always;
+            page-break-inside: avoid;
+            margin: 0 -10mm;
+            width: calc(100% + 20mm);
+        }
+        .att-img-page h4 {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14pt;
+            font-weight: 700;
+            text-align: center;
+            padding: 5mm 10mm 4mm;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+            line-height: 1.2;
+            color: #111;
+            margin: 0;
+        }
+        .att-img-el {
+            width: 100%;
+            max-height: 265mm;
+            object-fit: contain;
+            display: block;
+        }
+        /* ── Attachment: file buttons — always own page ── */
+        .att-files-page {
+            page-break-before: always;
+            margin: 0 -10mm;
+            width: calc(100% + 20mm);
+            padding: 12mm 12mm 0;
+        }
+        .att-files-page > h2 {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 24pt;
+            font-weight: 900;
+            margin: 0 0 8mm 0;
+            word-wrap: break-word;
+            line-height: 1.2;
+            color: #111;
+        }
+        .att-file-item {
+            margin-bottom: 8mm;
+            page-break-inside: avoid;
+        }
+        .att-file-item h3 {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 18pt;
+            font-weight: 700;
+            margin: 0 0 4mm 0;
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            line-height: 1.3;
+            color: #111;
+        }
+        .att-file-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10pt 28pt;
+            background: #e8f0fe;
+            color: #1a2b4a;
+            border: 2px solid #b0c4de;
+            border-radius: 8px;
+            text-decoration: none;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 14pt;
+            font-weight: 700;
+            min-width: 60mm;
+        }
+        @media print {
+            @page { size: A4 portrait; margin: 8mm; }
+            .no-print { display: none !important; }
+        }
+        .print-bar { position: fixed; top: 0; left: 0; right: 0; background: #1a2b4a; color: #fff; padding: 10px 20px; display: flex; gap: 12px; align-items: center; z-index: 100; font-family: sans-serif; font-size: 14px; }
+        .print-bar button { background: #fff; color: #1a2b4a; border: none; padding: 7px 18px; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 600; }
+        .print-bar button.sec { background: rgba(255,255,255,0.15); color: #fff; }
+        body { padding-top: 52px; }
+        @media print { body { padding-top: 0; } .print-bar { display: none; } }
+    </style>
+</head>
+<body>
+
+<div class="print-bar no-print">
+    <strong>Tibbiy yozuv</strong>
+    <button onclick="window.print()">Chop etish / PDF saqlash</button>
+    <button class="sec" onclick="window.close()">Yopish</button>
+</div>
+
+<div style="text-align:center;font-weight:bold;font-size:15px;margin-bottom:5px;">"OPTIMED" ko'z salomatligi markazi — Tibbiy yozuv</div>
+<div class="row">
+    <span><span class="lbl">Bemor:</span> {{ doc.patient.surname }} {{ doc.patient.name }}</span>
+    <span><span class="lbl">T.s.:</span> {{ doc.patient.birth_date|date:"d.m.Y"|default:"—" }}</span>
+    <span><span class="lbl">Telefon:</span> {{ doc.patient.phone }}</span>
+    <span><span class="lbl">Sana:</span> {{ doc.created_at|date:"d.m.Y H:i" }}</span>
+</div>
+<div class="row">
+    <span><span class="lbl">Shifokor:</span> {% if doc.doctor %}Dr. {{ doc.doctor.full_name }}{% else %}—{% endif %}</span>
+    {% if doc.patient.address %}<span><span class="lbl">Manzil:</span> {{ doc.patient.address }}</span>{% endif %}
+</div>
+
+{% if doc.anamnesis_morbi %}<div class="fld"><span class="lbl">Anamnesis morbi:</span> {{ doc.anamnesis_morbi }}</div>{% endif %}
+{% if doc.operatsiyalar %}<div class="fld"><span class="lbl">Operatsiyalar:</span> {{ doc.operatsiyalar }}</div>{% endif %}
+{% if doc.tomizilgan %}<div class="fld"><span class="lbl">Tomizilgan:</span> {{ doc.tomizilgan }}</div>{% endif %}
+{% if doc.koz_oynak_kontakt_linza %}<div class="fld"><span class="lbl">Ko'z oynak / Kontakt linza:</span> {{ doc.koz_oynak_kontakt_linza }}</div>{% endif %}
+{% if doc.anamnesis_vitae %}<div class="fld"><span class="lbl">Anamnesis vitae:</span> {{ doc.anamnesis_vitae }}</div>{% endif %}
+{% if doc.allergiya %}<div class="fld"><span class="lbl">Allergiya:</span> {{ doc.allergiya }}</div>{% endif %}
+
+<h3>Ko'z tekshiruvi / Осмотр глаз</h3>
+<table>
+    <thead>
+        <tr>
+            <th style="width:26%;text-align:left;">Ko'rsatkich</th>
+            <th style="width:37%;">OD (O'ng / Правый)</th>
+            <th style="width:37%;">OS (Chap / Левый)</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr><td>Qovoqlar / Веки</td><td>{{ doc.qovoqlar_od|default:"" }}</td><td>{{ doc.qovoqlar_os|default:"" }}</td></tr>
+        <tr><td>Ko'z soqqasi / Глазница</td><td>{{ doc.koz_soqqasi_od|default:"" }}</td><td>{{ doc.koz_soqqasi_os|default:"" }}</td></tr>
+        <tr><td>Ko'z olmasi / Глазное яблоко</td><td>{{ doc.koz_olmasi_od|default:"" }}</td><td>{{ doc.koz_olmasi_os|default:"" }}</td></tr>
+        <tr><td>Sklera / Склера</td><td>{{ doc.sklera_od|default:"" }}</td><td>{{ doc.sklera_os|default:"" }}</td></tr>
+        <tr><td>Shox parda / Роговица</td><td>{{ doc.shox_parda_od|default:"" }}</td><td>{{ doc.shox_parda_os|default:"" }}</td></tr>
+        <tr><td>Old kamera / Передняя камера</td><td>{{ doc.old_kamera_od|default:"" }}</td><td>{{ doc.old_kamera_os|default:"" }}</td></tr>
+        <tr><td>Rangdor parda (qorachiq) / Радужка</td><td>{{ doc.rangdor_parda_od|default:"" }}</td><td>{{ doc.rangdor_parda_os|default:"" }}</td></tr>
+        <tr><td>Gavhar / Хрусталик</td><td>{{ doc.gavhar_od|default:"" }}</td><td>{{ doc.gavhar_os|default:"" }}</td></tr>
+        <tr><td>Ko'rish o'tkirligi / Visus</td><td>{{ doc.korish_otkirligi_od|default:"" }}</td><td>{{ doc.korish_otkirligi_os|default:"" }}</td></tr>
+        <tr><td>Korreksiya bilan / С коррекцией</td><td>{{ doc.korreksiya_bilan_od|default:"" }}</td><td>{{ doc.korreksiya_bilan_os|default:"" }}</td></tr>
+        <tr><td>Shishasimon tana / Стекловидное тело</td><td>{{ doc.shishasimon_tana_od|default:"" }}</td><td>{{ doc.shishasimon_tana_os|default:"" }}</td></tr>
+        <tr><td>Oftalmoskopiya / Офтальмоскопия</td><td>{{ doc.oftalmoskopiya_od|default:"" }}</td><td>{{ doc.oftalmoskopiya_os|default:"" }}</td></tr>
+        {% if doc.fundus_od or doc.fundus_os %}<tr><td>Fundus / Глазное дно</td><td>{{ doc.fundus_od|default:"" }}</td><td>{{ doc.fundus_os|default:"" }}</td></tr>{% endif %}
+        {% if doc.ubm_od or doc.ubm_os %}<tr><td>УБМ</td><td>{{ doc.ubm_od|default:"" }}</td><td>{{ doc.ubm_os|default:"" }}</td></tr>{% endif %}
+        {% if doc.oct_od or doc.oct_os %}<tr><td>OCT</td><td>{{ doc.oct_od|default:"" }}</td><td>{{ doc.oct_os|default:"" }}</td></tr>{% endif %}
+        {% if doc.kp_od or doc.kp_os %}<tr><td>KP (Pachymetriya)</td><td>{{ doc.kp_od|default:"" }}</td><td>{{ doc.kp_os|default:"" }}</td></tr>{% endif %}
+        {% if doc.b_skan_od or doc.b_skan_os %}<tr><td>B-skan / В-скан</td><td>{{ doc.b_skan_od|default:"" }}</td><td>{{ doc.b_skan_os|default:"" }}</td></tr>{% endif %}
+        {% if doc.periferiya_od or doc.periferiya_os %}<tr><td>Periferiya</td><td>{{ doc.periferiya_od|default:"" }}</td><td>{{ doc.periferiya_os|default:"" }}</td></tr>{% endif %}
+    </tbody>
+</table>
+
+{% with refs=doc.refractions.all %}{% if refs %}
+<h3>REF (Рефрактометрия)</h3>
+<table>
+    <thead><tr><th style="text-align:left;width:18%;">Sana</th><th>OD S</th><th>OD C</th><th>OD A</th><th>OS S</th><th>OS C</th><th>OS A</th></tr></thead>
+    <tbody>
+        {% for r in refs %}
+        <tr><td>{{ r.created_at|date:"d.m.Y" }}</td><td>{{ r.od_s|default:"" }}</td><td>{{ r.od_c|default:"" }}</td><td>{{ r.od_a|default:"" }}</td><td>{{ r.os_s|default:"" }}</td><td>{{ r.os_c|default:"" }}</td><td>{{ r.os_a|default:"" }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}{% endwith %}
+
+{% with krts=doc.krts.all %}{% if krts %}
+<h3>KRT (Кератометрия)</h3>
+<table>
+    <thead><tr><th style="text-align:left;width:18%;">Sana</th><th>OD D</th><th>OD MM</th><th>OD A</th><th>OS D</th><th>OS MM</th><th>OS A</th></tr></thead>
+    <tbody>
+        {% for k in krts %}
+        <tr><td>{{ k.created_at|date:"d.m.Y" }}</td><td>{{ k.od_d|default:"" }}</td><td>{{ k.od_mm|default:"" }}</td><td>{{ k.od_a|default:"" }}</td><td>{{ k.os_d|default:"" }}</td><td>{{ k.os_mm|default:"" }}</td><td>{{ k.os_a|default:"" }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}{% endwith %}
+
+{% with iops=doc.iops.all %}{% if iops %}
+<h3>IOP (Ko'z bosimi / Внутриглазное давление)</h3>
+<table>
+    <thead><tr><th style="text-align:left;width:30%;">Sana</th><th>OD</th><th>OS</th></tr></thead>
+    <tbody>
+        {% for i in iops %}
+        <tr><td>{{ i.created_at|date:"d.m.Y" }}</td><td>{{ i.od_value|default:"" }}</td><td>{{ i.os_value|default:"" }}</td></tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endif %}{% endwith %}
+
+{% with vas=doc.visual_acuities.all %}{% if vas %}
+<h3>Korreksiya / Острота зрения</h3>
+{% for va in vas %}
+<div style="font-size:11px;color:#555;margin-bottom:2px;">{{ va.created_at|date:"d.m.Y" }}</div>
+<table style="margin-bottom:6px;">
+    <thead>
+        <tr><th style="text-align:left;width:22%;">Tur</th><th>SPH</th><th>CYL</th><th>AX</th><th>VIS</th><th>SPH</th><th>CYL</th><th>AX</th><th>VIS</th></tr>
+        <tr><th></th><th colspan="4" style="background:#e8f4f8;">OD (O'ng)</th><th colspan="4" style="background:#f4e8f8;">OS (Chap)</th></tr>
+    </thead>
+    <tbody>
+        {% if va.uzoq_od_sph or va.uzoq_os_sph or va.uzoq_od_vis or va.uzoq_os_vis %}
+        <tr><td>Uzoq (Вдаль)</td><td>{{ va.uzoq_od_sph }}</td><td>{{ va.uzoq_od_cyl }}</td><td>{{ va.uzoq_od_ax }}</td><td>{{ va.uzoq_od_vis }}</td><td>{{ va.uzoq_os_sph }}</td><td>{{ va.uzoq_os_cyl }}</td><td>{{ va.uzoq_os_ax }}</td><td>{{ va.uzoq_os_vis }}</td></tr>
+        {% endif %}
+        {% if va.yaqin_od_sph or va.yaqin_os_sph or va.yaqin_od_vis or va.yaqin_os_vis %}
+        <tr><td>Yaqin (Вблизи)</td><td>{{ va.yaqin_od_sph }}</td><td>{{ va.yaqin_od_cyl }}</td><td>{{ va.yaqin_od_ax }}</td><td>{{ va.yaqin_od_vis }}</td><td>{{ va.yaqin_os_sph }}</td><td>{{ va.yaqin_os_cyl }}</td><td>{{ va.yaqin_os_ax }}</td><td>{{ va.yaqin_os_vis }}</td></tr>
+        {% endif %}
+        {% if va.mkl_od_sph or va.mkl_os_sph or va.mkl_od_vis or va.mkl_os_vis %}
+        <tr><td>MKL</td><td>{{ va.mkl_od_sph }}</td><td>{{ va.mkl_od_cyl }}</td><td>{{ va.mkl_od_ax }}</td><td>{{ va.mkl_od_vis }}</td><td>{{ va.mkl_os_sph }}</td><td>{{ va.mkl_os_cyl }}</td><td>{{ va.mkl_os_ax }}</td><td>{{ va.mkl_os_vis }}</td></tr>
+        {% endif %}
+    </tbody>
+</table>
+{% endfor %}
+{% endif %}{% endwith %}
+
+{% if doc.tashxis %}<div class="fld" style="margin-top:5px;"><span class="lbl">Tashxis / Диагноз:</span> {{ doc.tashxis }}</div>{% endif %}
+{% if doc.tavsiya %}<div class="fld"><span class="lbl">Tavsiya / Рекомендации:</span> {{ doc.tavsiya }}</div>{% endif %}
+
+{% if doc.retsept_uzoq_od or doc.retsept_uzoq_os or doc.retsept_yaqin_od or doc.retsept_yaqin_os or doc.retsept_kontakt_od or doc.retsept_kontakt_os %}
+<h3>Retsept / Рецепт</h3>
+<table>
+    <thead><tr><th style="text-align:left;width:30%;">Tur</th><th>OD</th><th>OS</th></tr></thead>
+    <tbody>
+        {% if doc.retsept_uzoq_od or doc.retsept_uzoq_os %}<tr><td>Uzoq / Вдаль</td><td>{{ doc.retsept_uzoq_od|default:"—" }}</td><td>{{ doc.retsept_uzoq_os|default:"—" }}</td></tr>{% endif %}
+        {% if doc.retsept_yaqin_od or doc.retsept_yaqin_os %}<tr><td>Yaqin / Вблизи</td><td>{{ doc.retsept_yaqin_od|default:"—" }}</td><td>{{ doc.retsept_yaqin_os|default:"—" }}</td></tr>{% endif %}
+        {% if doc.retsept_kontakt_od or doc.retsept_kontakt_os %}<tr><td>Kontakt linza</td><td>{{ doc.retsept_kontakt_od|default:"—" }}</td><td>{{ doc.retsept_kontakt_os|default:"—" }}</td></tr>{% endif %}
+    </tbody>
+</table>
+{% endif %}
+
+<div class="sig">
+    <span>Shifokor: _________________________ {% if doc.doctor %}{{ doc.doctor.full_name }}{% endif %}</span>
+    <span>Bemor imzosi: _______________________</span>
+    <span>Sana: {{ doc.created_at|date:"d.m.Y" }}</span>
+</div>
+
+{% if show_files %}
+{% with attachments=doc.visit_attachments.all %}{% if attachments %}
+{% for att in attachments %}{% if att.file|is_image %}
+<div class="att-img-page">
+    {% if att.title %}<h4>{{ att.title }}</h4>{% endif %}
+    <img class="att-img-el" src="{{ att.file.url }}" alt="{{ att.title|default:att.file.name|slice:'12:' }}">
+</div>
+{% endif %}{% endfor %}
+{% for att in attachments %}{% if not att.file|is_image %}
+{% if forloop.first %}<div class="att-files-page"><h2>Biriktilgan fayllar</h2>{% endif %}
+<div class="att-file-item">
+    {% if att.title %}<h3>{{ att.title }}</h3>{% endif %}
+    <a href="{{ att.file.url }}" target="_blank" class="att-file-btn">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+        Faylni ochish
+    </a>
+</div>
+{% if forloop.last %}</div>{% endif %}
+{% endif %}{% endfor %}
+{% endif %}{% endwith %}
+{% endif %}
+
+</body>
+</html>

@@ -55,6 +55,10 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="12" r="4"/><circle cx="18" cy="12" r="4"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
                 Ko'zoynaklar
             </a>
+            <a href="{% url 'receptionist_documents' %}" class="nav-link {% block nav_admin_hujjatlar %}{% endblock %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                Hujjatlar
+            </a>
         </div>
         {% endif %}
 
@@ -106,24 +110,24 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 3h6v2H9zM7 5l-2 13a2 2 0 002 2h10a2 2 0 002-2L17 5"/><path d="M7 12h10"/></svg>
                 Bemorlar
             </a>
+            <a href="{% url 'lab_boshqarish' %}" class="nav-link {% block nav_lab_boshqarish %}{% endblock %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 010 14.14M4.93 4.93a10 10 0 000 14.14"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2"/></svg>
+                Boshqarish
+            </a>
         </div>
         {% endif %}
 
         {% if request.session.user_role == 'seller' %}
-        <!-- SELLER NAVIGATION -->
+        <!-- OPTIKA NAVIGATION -->
         <div class="nav-section">
-            <div class="nav-section-title">Ko'zoynak do'koni</div>
-            <a href="{% url 'seller_sales' %}" class="nav-link {% block nav_seller_sales %}{% endblock %}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                Sotuvlar
-            </a>
-            <a href="{% url 'seller_panel' %}" class="nav-link {% block nav_seller %}{% endblock %}">
+            <div class="nav-section-title">Optika</div>
+            <a href="{% url 'optika_panel' %}" class="nav-link {% block nav_optika %}{% endblock %}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="12" r="4"/><circle cx="18" cy="12" r="4"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
-                Ko'zoynaklar
+                Mijozlar
             </a>
-            <a href="{% url 'seller_analytics' %}" class="nav-link {% block nav_seller_analytics %}{% endblock %}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
-                Statistika
+            <a href="{% url 'optika_hisobot' %}" class="nav-link {% block nav_optika_hisobot %}{% endblock %}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+                Hisobot
             </a>
         </div>
         {% endif %}
@@ -195,5 +199,39 @@ function showToast(message, type) {
 </script>
 
 {% block extra_js %}{% endblock %}
+<script>
+/* Auto-grow all textareas as user types */
+function autoGrowTextarea(el) {
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+}
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('textarea').forEach(function(ta) {
+        ta.style.overflow = 'hidden';
+        ta.style.resize = 'none';
+        autoGrowTextarea(ta);
+        ta.addEventListener('input', function() { autoGrowTextarea(this); });
+    });
+});
+/* Re-apply when modals open (mutation observer) */
+var _taObserver = new MutationObserver(function(mutations) {
+    mutations.forEach(function(m) {
+        m.addedNodes.forEach(function(node) {
+            if (node.nodeType === 1) {
+                node.querySelectorAll && node.querySelectorAll('textarea').forEach(function(ta) {
+                    if (!ta.dataset.autogrow) {
+                        ta.dataset.autogrow = '1';
+                        ta.style.overflow = 'hidden';
+                        ta.style.resize = 'none';
+                        autoGrowTextarea(ta);
+                        ta.addEventListener('input', function() { autoGrowTextarea(this); });
+                    }
+                });
+            }
+        });
+    });
+});
+_taObserver.observe(document.body, { childList: true, subtree: true });
+</script>
 </body>
 </html>

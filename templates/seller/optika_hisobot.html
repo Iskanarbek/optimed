@@ -1,26 +1,26 @@
 {% extends 'base.html' %}
 {% load clinic_filters %}
-{% block title %}Optika tahlili — Optimed CRM{% endblock %}
-{% block nav_analytics_glasses %}active{% endblock %}
+{% block title %}Hisobot — Optika{% endblock %}
+{% block nav_optika_hisobot %}active{% endblock %}
 
 {% block content %}
 <div class="page-header">
     <div>
-        <h1>Optika tahlili</h1>
-        <p>Optika sotuvlari statistikasi</p>
+        <h1>Hisobot</h1>
+        <p>Optika sotuvlari ro'yxati</p>
     </div>
     <div class="period-filter">
         <a href="?period=month" class="period-btn {% if period == 'month' %}active{% endif %}">Oy</a>
-        <a href="?period=6m" class="period-btn {% if period == '6m' %}active{% endif %}">6 oy</a>
-        <a href="?period=year" class="period-btn {% if period == 'year' %}active{% endif %}">Yil</a>
-        <a href="?period=all" class="period-btn {% if period == 'all' %}active{% endif %}">Hammasi</a>
+        <a href="?period=6m"    class="period-btn {% if period == '6m'    %}active{% endif %}">6 oy</a>
+        <a href="?period=year"  class="period-btn {% if period == 'year'  %}active{% endif %}">Yil</a>
+        <a href="?period=all"   class="period-btn {% if period == 'all'   %}active{% endif %}">Hammasi</a>
     </div>
 </div>
 
 <div class="stats-grid">
     <div class="stat-card accent animate-in">
         <div class="stat-label">Jami sotuvlar</div>
-        <div class="stat-value">{{ total_sales_count }} ta</div>
+        <div class="stat-value">{{ total_count }} ta</div>
     </div>
     <div class="stat-card accent animate-in">
         <div class="stat-label">Jami daromad</div>

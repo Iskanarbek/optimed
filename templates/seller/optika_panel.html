@@ -1,0 +1,70 @@
+{% extends 'base.html' %}
+{% block title %}Optika — Optimed CRM{% endblock %}
+{% block nav_optika %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Optika</h1>
+        <p>Mijozlarni qidiring va retsept yozing</p>
+    </div>
+</div>
+
+<div class="search-bar" style="margin-bottom:20px;">
+    <input type="text" id="optikaSearch" placeholder="Ism, familiya yoki telefon raqami..." value="{{ query }}" oninput="debounceSearch(this.value)" onkeydown="if(event.key==='Enter')doSearch()">
+    <button class="btn btn-primary" onclick="doSearch()">Qidirish</button>
+</div>
+
+<div id="patientList">
+{% if patients %}
+<div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">
+    {% if query %}Natijalar: {{ patients|length }} ta{% else %}So'nggi mijozlar{% endif %}
+</div>
+{% for p in patients %}
+<div class="patient-row" onclick="window.location='/optika/patient/{{ p.pk }}/'">
+    <div class="patient-row-info">
+        <strong>{{ p.surname }} {{ p.name }}</strong>
+        <span style="color:var(--text-muted);font-size:12px;margin-left:10px;">{{ p.phone }}</span>
+    </div>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);flex-shrink:0;"><polyline points="9 18 15 12 9 6"/></svg>
+</div>
+{% empty %}
+<div class="empty-state"><p>Mijozlar topilmadi</p></div>
+{% endfor %}
+{% else %}
+<div class="empty-state"><p>Hech qanday mijoz topilmadi</p></div>
+{% endif %}
+</div>
+
+<style>
+.patient-row {
+    background: var(--card-bg,#fff);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    transition: background 0.15s;
+}
+.patient-row:hover { background: var(--bg); }
+.patient-row-info { flex: 1; }
+</style>
+
+<script>
+var searchTimer = null;
+function debounceSearch(val) {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function() {
+        window.location = '/optika/?q=' + encodeURIComponent(val);
+    }, 350);
+}
+function doSearch() {
+    clearTimeout(searchTimer);
+    var q = document.getElementById('optikaSearch').value.trim();
+    window.location = '/optika/?q=' + encodeURIComponent(q);
+}
+</script>
+{% endblock %}

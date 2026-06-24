@@ -11,7 +11,7 @@
 </div>
 
 <div class="search-bar" style="margin-bottom:20px;">
-    <input type="text" id="docSearchInput" placeholder="Telefon raqami yoki protokol raqami bo'yicha qidirish..." onkeydown="if(event.key==='Enter')searchDocuments()">
+    <input type="text" id="docSearchInput" placeholder="Telefon raqami yoki protokol raqami bo'yicha qidirish..." oninput="debounceSearch()" onkeydown="if(event.key==='Enter')searchDocuments()">
     <button class="btn btn-primary" onclick="searchDocuments()">Qidirish</button>
 </div>
 
@@ -29,7 +29,10 @@
         </div>
         <div class="doc-card-actions">
             <button class="btn btn-secondary btn-sm" onclick="viewDocument('{{ item.type }}', {{ item.id }})">Ko'rish</button>
-            <button class="btn btn-primary btn-sm" onclick="viewDocument('{{ item.type }}', {{ item.id }}, true)">Chop</button>
+            {% if item.type == 'tibbiy_yozuv' %}
+            <button class="btn btn-secondary btn-sm" onclick="openAttachModal({{ item.id }})">+ Fayl</button>
+            {% endif %}
+            <button class="btn btn-primary btn-sm" onclick="printDoc('{{ item.type }}', {{ item.id }})">Chop</button>
         </div>
     </div>
     {% endfor %}
@@ -40,10 +43,55 @@
 <!-- A4 OVERLAY -->
 <div class="form-overlay" id="formOverlay" style="display:none;">
     <div class="form-overlay-header">
-        <button class="btn btn-secondary btn-sm" onclick="closeOverlay()">Yopish</button>
-        <button class="btn btn-primary btn-sm" onclick="printDocument()">Chop etish</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-secondary btn-sm" onclick="closeOverlay()">Yopish</button>
+            <span id="overlayDocType" style="display:none;"></span>
+        </div>
+        <div style="display:flex;gap:8px;">
+            <button id="btnAddFile" class="btn btn-secondary btn-sm" style="display:none;" onclick="openAttachModal(currentDocId)">+ Fayl biriktirish</button>
+            <button id="btnDownload" class="btn btn-secondary btn-sm" style="display:none;" onclick="downloadDocument()">PDF saqlash</button>
+            <button class="btn btn-primary btn-sm" onclick="printDocument()">Chop etish</button>
+        </div>
     </div>
     <div class="form-overlay-body" id="overlayBody"></div>
+</div>
+
+<!-- PRINT WITH/WITHOUT FILES DIALOG -->
+<div id="printDialog" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;">
+    <div style="background:var(--card-bg,#fff);border-radius:var(--radius);padding:28px 32px;max-width:380px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+        <h3 style="margin:0 0 12px;font-size:16px;">Fayllar bilan chop etish?</h3>
+        <p style="font-size:13px;color:var(--text-muted);margin:0 0 20px;">Tibbiy yozuvga biriktrilgan rasmlar va fayllarni ham chop etishni xohlaysizmi?</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button class="btn btn-secondary" onclick="executePrint(false)">Faylsiz</button>
+            <button class="btn btn-primary" onclick="executePrint(true)">Fayllar bilan</button>
+        </div>
+    </div>
+</div>
+
+<!-- ATTACH FILE MODAL -->
+<div id="attachModal" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:2000;align-items:center;justify-content:center;">
+    <div style="background:var(--card-bg,#fff);border-radius:var(--radius);padding:24px;max-width:440px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+            <h3 style="margin:0;font-size:15px;">Fayl biriktirish</h3>
+            <button class="btn btn-sm" onclick="closeAttachModal()">✕</button>
+        </div>
+        <form id="attachForm" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div style="margin-bottom:10px;">
+                <label class="form-label">Fayl nomi (sarlavha)</label>
+                <input type="text" name="title" id="attachTitleInput" class="form-control" placeholder="Masalan: Ko'z fondi, Refraktometriya...">
+            </div>
+            <div style="margin-bottom:14px;">
+                <label class="form-label">Fayllar tanlang (rasm yoki PDF)</label>
+                <input type="file" name="files" id="attachFileInput" class="form-control" multiple accept="image/*,.pdf">
+            </div>
+            <div id="attachStatus" style="font-size:12px;color:var(--text-muted);margin-bottom:8px;display:none;"></div>
+            <div style="display:flex;gap:8px;justify-content:flex-end;">
+                <button type="button" class="btn btn-secondary" onclick="closeAttachModal()">Bekor</button>
+                <button type="button" class="btn btn-primary" onclick="submitAttachAjax()">Yuklash</button>
+            </div>
+        </form>
+    </div>
 </div>
 
 <style>
@@ -81,26 +129,29 @@
 }
 .form-overlay-header {
     position: sticky; top: 0; background: var(--dark); padding: 12px 24px;
-    display: flex; gap: 8px; justify-content: flex-end; z-index: 1001;
+    display: flex; gap: 8px; justify-content: space-between; align-items: center; z-index: 1001;
 }
 .form-overlay-body {
     max-width: 210mm; margin: 20px auto; background: #fff;
     padding: 20mm; min-height: 297mm; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
-/* Print handled by printDocument() opening a new window */
 </style>
 
 <script>
+var currentDocId = null;
+var currentDocType = null;
+var searchTimer = null;
+
+function debounceSearch() {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(function() { searchDocuments(); }, 350);
+}
+
 function searchDocuments() {
     var q = document.getElementById('docSearchInput').value.trim();
-    if (!q) {
-        // Restore recent docs
-        location.reload();
-        return;
-    }
+    if (!q) { location.reload(); return; }
     document.getElementById('docEmpty').style.display = 'none';
     document.getElementById('docResults').innerHTML = '<p style="color:var(--text-muted);padding:12px;">Qidirilmoqda...</p>';
-
     fetch('{% url "receptionist_documents_search" %}?q=' + encodeURIComponent(q))
         .then(function(r) { return r.json(); })
         .then(function(data) {
@@ -111,16 +162,16 @@ function searchDocuments() {
             }
             var html = '';
             data.results.forEach(function(item) {
-                var typeLabel = item.label || item.type;
-                var typeClass = item.type;
+                var isTY = item.type === 'tibbiy_yozuv';
                 html += '<div class="doc-card">' +
                     '<div class="doc-card-info">' +
-                    '<h4><span class="doc-card-type ' + typeClass + '">' + typeLabel + '</span>' + item.patient_name + '</h4>' +
+                    '<h4><span class="doc-card-type ' + item.type + '">' + (item.label || item.type) + '</span>' + item.patient_name + '</h4>' +
                     '<p>Protokol: ' + (item.protocol || '—') + ' &middot; Doktor: ' + item.doctor_name + ' &middot; ' + item.date + '</p>' +
                     '</div>' +
                     '<div class="doc-card-actions">' +
                     '<button class="btn btn-secondary btn-sm" onclick="viewDocument(\'' + item.type + '\',' + item.id + ')">Ko\'rish</button>' +
-                    '<button class="btn btn-primary btn-sm" onclick="viewDocument(\'' + item.type + '\',' + item.id + ', true)">Chop</button>' +
+                    (isTY ? '<button class="btn btn-secondary btn-sm" onclick="openAttachModal(' + item.id + ')">+ Fayl</button>' : '') +
+                    '<button class="btn btn-primary btn-sm" onclick="printDoc(\'' + item.type + '\',' + item.id + ')">Chop</button>' +
                     '</div></div>';
             });
             document.getElementById('docResults').innerHTML = html;
@@ -128,37 +179,116 @@ function searchDocuments() {
 }
 
 function viewDocument(type, id, autoPrint) {
+    currentDocId = id;
+    currentDocType = type;
     fetch('{% url "receptionist_document_view" "eye_exam" 0 %}'.replace('eye_exam', type).replace('/0/', '/' + id + '/'))
         .then(function(r) { return r.text(); })
         .then(function(html) {
             document.getElementById('overlayBody').innerHTML = html;
             document.getElementById('formOverlay').style.display = 'block';
             document.body.style.overflow = 'hidden';
-            // Push state so browser back button closes overlay instead of navigating away
+            var isTY = type === 'tibbiy_yozuv';
+            document.getElementById('btnAddFile').style.display = isTY ? '' : 'none';
+            document.getElementById('btnDownload').style.display = isTY ? '' : 'none';
             history.pushState({overlay: true, type: type, id: id}, '', '#doc-' + type + '-' + id);
             if (autoPrint) { setTimeout(function(){ printDocument(); }, 300); }
         });
 }
 
+function printDoc(type, id) {
+    currentDocId = id;
+    currentDocType = type;
+    if (type === 'tibbiy_yozuv') {
+        // Open standalone print page directly — avoids popup blocker (no async)
+        window.open('/receptionist/tibbiy-yozuv/' + id + '/print/?files=1', '_blank');
+    } else {
+        fetch('{% url "receptionist_document_view" "eye_exam" 0 %}'.replace('eye_exam', type).replace('/0/', '/' + id + '/'))
+            .then(function(r) { return r.text(); })
+            .then(function(html) {
+                document.getElementById('overlayBody').innerHTML = html;
+                executePrint(true);
+            });
+    }
+}
+
+function printDocument() {
+    if (currentDocType === 'tibbiy_yozuv') {
+        var hasFiles = document.querySelector('#overlayBody [data-attachment="true"]');
+        if (hasFiles) {
+            document.getElementById('printDialog').style.display = 'flex';
+            return;
+        }
+        window.open('/receptionist/tibbiy-yozuv/' + currentDocId + '/print/?files=0', '_blank');
+        return;
+    }
+    executePrint(true);
+}
+
+function executePrint(withFiles) {
+    document.getElementById('printDialog').style.display = 'none';
+    if (currentDocType === 'tibbiy_yozuv') {
+        window.open('/receptionist/tibbiy-yozuv/' + currentDocId + '/print/?files=' + (withFiles ? '1' : '0'), '_blank');
+        return;
+    }
+    var bodyEl = document.getElementById('overlayBody');
+    var html = bodyEl.innerHTML;
+    var w = window.open('', '_blank');
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Hujjat</title><style>body{margin:10mm;font-family:\'Times New Roman\',serif;}@page{size:A4 portrait;margin:10mm;}</style></head><body>' + html + '</body></html>');
+    w.document.close();
+    w.focus();
+    setTimeout(function(){ w.print(); w.close(); }, 500);
+}
+
+function downloadDocument() {
+    // Opens the standalone print page in new tab — user saves as PDF via browser print dialog
+    window.open('/receptionist/tibbiy-yozuv/' + currentDocId + '/print/?files=1', '_blank');
+}
+
+function openAttachModal(visitId) {
+    currentDocId = visitId;
+    document.getElementById('attachFileInput').value = '';
+    document.getElementById('attachTitleInput').value = '';
+    document.getElementById('attachStatus').style.display = 'none';
+    document.getElementById('attachModal').style.display = 'flex';
+}
+
+function closeAttachModal() {
+    document.getElementById('attachModal').style.display = 'none';
+}
+
+function submitAttachAjax() {
+    var input = document.getElementById('attachFileInput');
+    if (!input.files.length) { alert("Fayl tanlanmadi"); return; }
+    var fd = new FormData(document.getElementById('attachForm'));
+    var status = document.getElementById('attachStatus');
+    status.textContent = 'Yuklanmoqda...';
+    status.style.display = 'block';
+    fetch('/receptionist/visit/' + currentDocId + '/add-attachment/', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd
+    }).then(function(r){ return r.json(); })
+    .then(function(d) {
+        if (!d.ok) { status.textContent = 'Xato yuz berdi'; return; }
+        status.textContent = d.files.length + ' ta fayl yuklandi.';
+        // Reload overlay content to show new files
+        fetch('{% url "receptionist_document_view" "eye_exam" 0 %}'.replace('eye_exam', currentDocType).replace('/0/', '/' + currentDocId + '/'))
+            .then(function(r){ return r.text(); })
+            .then(function(html){
+                document.getElementById('overlayBody').innerHTML = html;
+                closeAttachModal();
+            });
+    }).catch(function(){ status.textContent = 'Yuklashda xato'; });
+}
+
 function closeOverlay() {
     document.getElementById('formOverlay').style.display = 'none';
     document.body.style.overflow = '';
-    // Remove the hash from URL without navigation
     if (location.hash && location.hash.indexOf('#doc-') === 0) {
         history.pushState(null, '', location.pathname + location.search);
     }
 }
 
-function printDocument() {
-    var html = document.getElementById('overlayBody').innerHTML;
-    var w = window.open('', '_blank');
-    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>Hujjat</title><style>body{margin:10mm;font-family:\'Times New Roman\',serif;}@page{size:A4 portrait;margin:10mm;}</style></head><body>' + html + '</body></html>');
-    w.document.close();
-    w.focus();
-    setTimeout(function(){ w.print(); w.close(); }, 400);
-}
-
-// Close overlay on browser back
 window.addEventListener('popstate', function(e) {
     var overlay = document.getElementById('formOverlay');
     if (overlay.style.display === 'block') {

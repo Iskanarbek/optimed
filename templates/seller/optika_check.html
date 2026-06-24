@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Chek — Optika{% endblock %}
+{% block nav_optika %}active{% endblock %}
+
+{% block content %}
+<div class="page-header no-print">
+    <div><h1>Chek</h1></div>
+    <div style="display:flex;gap:8px;">
+        <button class="btn btn-secondary" onclick="window.print()">Chop etish</button>
+        <a href="{% url 'optika_panel' %}" class="btn btn-primary">Tugatish</a>
+    </div>
+</div>
+
+<div id="checkCard">
+    <div class="chek-header">
+        <div class="chek-title">OPTIMED Optika</div>
+        <div class="chek-sub">{{ sale.created_at|date:"d.m.Y H:i" }}</div>
+        <div class="chek-divider">--------------------------------</div>
+    </div>
+
+    {% if sale.patient %}
+    <div class="chek-row" style="margin-bottom:4px;">
+        <span class="chek-label">Mijoz:</span>
+        <span>{{ sale.patient.surname }} {{ sale.patient.name }}</span>
+    </div>
+    {% if sale.patient.phone %}
+    <div class="chek-row" style="margin-bottom:6px;">
+        <span class="chek-label">Tel:</span>
+        <span>{{ sale.patient.phone }}</span>
+    </div>
+    {% endif %}
+    <div class="chek-divider">--------------------------------</div>
+    {% endif %}
+
+    <div class="chek-items">
+        {% for item in sale.items %}
+        <div class="chek-item">
+            <div class="chek-item-name">{{ item.name }}</div>
+            <div class="chek-item-price">{{ item.price|floatformat:0 }} so'm</div>
+        </div>
+        {% empty %}
+        <div style="text-align:center;color:#999;">Tovar yo'q</div>
+        {% endfor %}
+    </div>
+
+    <div class="chek-divider">================================</div>
+    <div class="chek-total">
+        <span>JAMI:</span>
+        <span>{{ sale.total|floatformat:0 }} so'm</span>
+    </div>
+    <div class="chek-divider">--------------------------------</div>
+
+    <div class="chek-footer">
+        Rahmat! Yana tashrif buyuring.
+    </div>
+</div>
+
+<style>
+/* ── Screen preview ── */
+#checkCard {
+    max-width: 300px;
+    margin: 0 auto;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: 0 2px 12px rgba(0,0,0,.08);
+    padding: 16px 12px;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    color: #000;
+}
+.chek-header { text-align: center; margin-bottom: 8px; }
+.chek-title { font-size: 16px; font-weight: 700; letter-spacing: 1px; }
+.chek-sub { font-size: 11px; color: #555; margin-top: 2px; }
+.chek-divider { color: #999; font-size: 11px; margin: 6px 0; letter-spacing: 0; overflow: hidden; }
+.chek-row { display: flex; gap: 6px; font-size: 12px; }
+.chek-label { font-weight: 700; flex-shrink: 0; }
+.chek-items { margin: 4px 0; }
+.chek-item { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 5px; font-size: 12px; }
+.chek-item-name { flex: 1; word-break: break-word; }
+.chek-item-price { white-space: nowrap; font-weight: 600; }
+.chek-total { display: flex; justify-content: space-between; font-size: 15px; font-weight: 900; margin: 6px 0; }
+.chek-footer { text-align: center; font-size: 11px; color: #555; margin-top: 6px; }
+
+/* ── Thermal print ── */
+@media print {
+    @page { size: 80mm auto; margin: 3mm 4mm; }
+    body * { visibility: hidden; }
+    #checkCard, #checkCard * { visibility: visible; }
+    #checkCard {
+        position: absolute;
+        top: 0; left: 0;
+        max-width: 100%;
+        width: 100%;
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+        padding: 0;
+        margin: 0;
+        font-size: 11pt;
+    }
+    .chek-title { font-size: 13pt; }
+    .chek-total { font-size: 13pt; }
+    .chek-item, .chek-row { font-size: 10pt; }
+    .chek-sub, .chek-footer, .chek-divider { font-size: 9pt; }
+    .no-print { display: none !important; }
+}
+</style>
+{% endblock %}

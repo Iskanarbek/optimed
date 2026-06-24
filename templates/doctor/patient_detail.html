@@ -5,6 +5,14 @@
 
 {% block content %}
 <style>
+.ty-data-row {
+    padding: 3px 6px;
+    border-radius: 4px;
+    margin-bottom: 3px;
+    font-size: 12px;
+    background: var(--card-bg, #fff);
+    border: 1px solid var(--border);
+}
 .history-edit-btn {
     background: none; border: 1px solid var(--border); border-radius: 6px; padding: 4px 10px;
     font-size: 11px; cursor: pointer; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px;
@@ -189,7 +197,7 @@
                     <!-- Top 3 new buttons -->
                     <div class="med-buttons-row" style="margin-bottom:8px;">
                         <button type="button" class="btn btn-secondary" onclick="openModal('lasikModal')">LASIK <span style="color:var(--text-muted);font-size:10px;font-weight:400;">(ЛАСИК)</span></button>
-                        <button type="button" class="btn btn-secondary" onclick="openModal('strabismusModal')">Ko'squlilik <span style="color:var(--text-muted);font-size:10px;font-weight:400;">(Косоглазие)</span></button>
+                        <button type="button" class="btn btn-secondary" onclick="openModal('strabismusModal')">Ko'z g'ilayligi <span style="color:var(--text-muted);font-size:10px;font-weight:400;">(Косоглазие)</span></button>
                         <button type="button" class="btn btn-secondary" onclick="openModal('postopModal')">Oper. ko'chirma <span style="color:var(--text-muted);font-size:10px;font-weight:400;">(Операционная выписка)</span></button>
                     </div>
                     <!-- Tibbiy yozuv -->
@@ -219,6 +227,7 @@
                     <div class="form-overlay" id="tyFileOverlay{{ active_visit.pk }}" onclick="if(event.target===this)closeDocOverlay('tyFileOverlay{{ active_visit.pk }}')">
                         <div class="form-overlay-inner" style="max-width:800px;">
                             <div class="form-overlay-actions no-print" style="display:flex;gap:8px;justify-content:flex-end;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+                                <button class="btn btn-secondary btn-sm" onclick="downloadTibbiyYozuv('tyFileOverlay{{ active_visit.pk }}')">Yuklab olish</button>
                                 <button class="btn btn-primary btn-sm" onclick="window.print()">Chop etish</button>
                                 <button class="btn btn-secondary btn-sm" onclick="closeDocOverlay('tyFileOverlay{{ active_visit.pk }}')">✕ Yopish</button>
                             </div>
@@ -545,14 +554,14 @@
             {% for sf in strabismus_forms %}
             <div class="form-history-card" style="cursor:pointer;" onclick="openDocOverlay('strabismusOverlay{{ sf.pk }}')">
                 <div class="form-history-header">
-                    <div><span class="form-type-badge" style="background:#d971001a;color:#d97100;">Ko'squlilik</span><span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ sf.protocol_number|default:"—" }} &middot; {{ sf.created_at|date:"d.m.Y" }}</span></div>
+                    <div><span class="form-type-badge" style="background:#d971001a;color:#d97100;">Ko'z g'ilayligi</span><span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ sf.protocol_number|default:"—" }} &middot; {{ sf.created_at|date:"d.m.Y" }}</span></div>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-muted);"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                 </div>
             </div>
             <div class="form-overlay" id="strabismusOverlay{{ sf.pk }}" onclick="if(event.target===this)closeDocOverlay('strabismusOverlay{{ sf.pk }}')">
                 <div style="background:var(--white);border-radius:12px;padding:24px;width:100%;max-width:780px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);">
-                        <div><span class="form-type-badge" style="background:#d971001a;color:#d97100;">Ko'squlilik</span><span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ sf.protocol_number|default:"—" }} &middot; {{ sf.created_at|date:"d.m.Y" }}</span></div>
+                        <div><span class="form-type-badge" style="background:#d971001a;color:#d97100;">Ko'z g'ilayligi</span><span style="margin-left:8px;font-size:12px;color:var(--text-muted);">#{{ sf.protocol_number|default:"—" }} &middot; {{ sf.created_at|date:"d.m.Y" }}</span></div>
                         <button class="btn btn-secondary btn-sm" onclick="closeDocOverlay('strabismusOverlay{{ sf.pk }}')">✕ Yopish</button>
                     </div>
                     <div style="font-size:13px;line-height:1.8;">
@@ -628,13 +637,6 @@
         <div class="card animate-in" style="margin-bottom:16px;">
             <div class="card-header">
                 <h3>Ma'lumotlar</h3>
-                <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
-                    <button class="btn btn-secondary btn-sm" onclick="openModal('addRefModal')">+ REF</button>
-                    <button class="btn btn-secondary btn-sm" onclick="openModal('addKrtModal')">+ KRT</button>
-                    <button class="btn btn-secondary btn-sm" onclick="openModal('addIopModal')">+ IOP</button>
-                    <button class="btn btn-secondary btn-sm" onclick="openModal('addVaModal')">+ Korreksiya</button>
-                    <button class="btn btn-secondary btn-sm" type="button" onclick="addFileInput()">+ Fayl</button>
-                </div>
             </div>
 
             <!-- Show existing Visual Acuity records -->
@@ -819,9 +821,10 @@
 {% if active_visit %}
 <!-- TIBBIY YOZUV MODAL — Task 13: all 19 fields -->
 <div class="modal-backdrop" id="tibbiyYozuvModal">
-    <div class="modal" style="max-width:700px;max-height:90vh;overflow-y:auto;">
+    <div class="modal" style="max-width:800px;max-height:93vh;overflow-y:auto;">
         <h3>Tibbiy yozuv</h3>
-        <form method="post" action="{% url 'doctor_update_visit' doctor.pk active_visit.pk %}" id="tibbiyYozuvForm">
+
+        <form id="tibbiyYozuvForm" method="post" action="{% url 'doctor_update_visit' doctor.pk active_visit.pk %}">
             {% csrf_token %}
             <div class="form-group"><label>Anamnesis morbi <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Анамнез заболевания)</span></label><textarea name="anamnesis_morbi" class="form-control" rows="2">{{ active_visit.anamnesis_morbi }}</textarea></div>
             <div class="form-group"><label>Operatsiyalar <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Операции)</span></label><textarea name="operatsiyalar" class="form-control" rows="2">{{ active_visit.operatsiyalar }}</textarea></div>
@@ -943,11 +946,163 @@
                 <div style="font-size:11px;">Retsept kontakt linza <span style="color:var(--text-muted);">(Контактные линзы)</span></div><input type="text" name="retsept_kontakt_od" class="form-control" value="{{ active_visit.retsept_kontakt_od }}"><input type="text" name="retsept_kontakt_os" class="form-control" value="{{ active_visit.retsept_kontakt_os }}">
             </div>
 
-            <div class="modal-actions">
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
                 <button type="button" class="btn btn-secondary" onclick="closeModal('tibbiyYozuvModal')">Bekor qilish</button>
-                <button type="submit" class="btn btn-primary">Saqlash</button>
+                <button type="button" class="btn btn-secondary" onclick="window.open('/receptionist/tibbiy-yozuv/{{ active_visit.pk }}/print/?files=1','_blank')">Chop etish</button>
+                <button type="button" class="btn btn-primary" id="tyYakunlashBtn" onclick="tyAjaxSave()">Yakunlash</button>
             </div>
         </form>
+
+        <!-- Inline sub-panels for REF/KRT/IOP/VA/File -->
+        <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:8px;">
+            <div style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">Qo'shimcha ma'lumotlar qo'shish</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="tyTogglePanel('tyRefPanel')">+ REF</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="tyTogglePanel('tyKrtPanel')">+ KRT</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="tyTogglePanel('tyIopPanel')">+ IOP</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="tyTogglePanel('tyVaPanel')">+ Korreksiya (VA)</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="tyTogglePanel('tyFilePanel')">+ Fayl biriktirish</button>
+            </div>
+
+            <!-- Inline REF panel -->
+            <div id="tyRefPanel" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px;">
+                <div style="font-weight:600;font-size:12px;margin-bottom:8px;">REF kiritish</div>
+                <form id="tyRefForm">
+                    {% csrf_token %}
+                    <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr;gap:4px;margin-bottom:4px;font-size:12px;">
+                        <div style="display:flex;align-items:flex-end;padding-bottom:4px;font-weight:600;">OD</div>
+                        <div><label style="font-size:10px;">S</label><input type="text" name="od_s" class="form-control" style="font-size:11px;"></div>
+                        <div><label style="font-size:10px;">C</label><input type="text" name="od_c" class="form-control" style="font-size:11px;"></div>
+                        <div><label style="font-size:10px;">A</label><input type="text" name="od_a" class="form-control" style="font-size:11px;"></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr;gap:4px;margin-bottom:8px;font-size:12px;">
+                        <div style="display:flex;align-items:flex-end;padding-bottom:4px;font-weight:600;">OS</div>
+                        <div><label style="font-size:10px;">S</label><input type="text" name="os_s" class="form-control" style="font-size:11px;"></div>
+                        <div><label style="font-size:10px;">C</label><input type="text" name="os_c" class="form-control" style="font-size:11px;"></div>
+                        <div><label style="font-size:10px;">A</label><input type="text" name="os_a" class="form-control" style="font-size:11px;"></div>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="tyAjaxMeasure('tyRefForm','{% url "doctor_add_refraction" doctor.pk active_visit.pk %}','ref')">Qo'shish</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="tyTogglePanel('tyRefPanel')">Yopish</button>
+                </form>
+            </div>
+
+            <!-- Inline KRT panel -->
+            <div id="tyKrtPanel" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px;">
+                <div style="font-weight:600;font-size:12px;margin-bottom:8px;">KRT kiritish</div>
+                <form id="tyKrtForm">
+                    {% csrf_token %}
+                    <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr;gap:4px;margin-bottom:4px;font-size:12px;">
+                        <div style="display:flex;align-items:flex-end;padding-bottom:4px;font-weight:600;">OD</div>
+                        <div><label style="font-size:10px;">D</label><input type="text" name="od_d" class="form-control" style="font-size:11px;"></div>
+                        <div><label style="font-size:10px;">MM</label><input type="text" name="od_mm" class="form-control" style="font-size:11px;"></div>
+                        <div><label style="font-size:10px;">A</label><input type="text" name="od_a" class="form-control" style="font-size:11px;"></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr;gap:4px;margin-bottom:8px;font-size:12px;">
+                        <div style="display:flex;align-items:flex-end;padding-bottom:4px;font-weight:600;">OS</div>
+                        <div><label style="font-size:10px;">D</label><input type="text" name="os_d" class="form-control" style="font-size:11px;"></div>
+                        <div><label style="font-size:10px;">MM</label><input type="text" name="os_mm" class="form-control" style="font-size:11px;"></div>
+                        <div><label style="font-size:10px;">A</label><input type="text" name="os_a" class="form-control" style="font-size:11px;"></div>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="tyAjaxMeasure('tyKrtForm','{% url "doctor_add_krt" doctor.pk active_visit.pk %}','krt')">Qo'shish</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="tyTogglePanel('tyKrtPanel')">Yopish</button>
+                </form>
+            </div>
+
+            <!-- Inline IOP panel -->
+            <div id="tyIopPanel" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px;">
+                <div style="font-weight:600;font-size:12px;margin-bottom:8px;">IOP (Ko'z bosimi)</div>
+                <form id="tyIopForm">
+                    {% csrf_token %}
+                    <div style="display:grid;grid-template-columns:40px 1fr;gap:4px;margin-bottom:4px;font-size:12px;">
+                        <div style="display:flex;align-items:flex-end;padding-bottom:4px;font-weight:600;">OD</div>
+                        <div><input type="text" name="od_value" class="form-control" style="font-size:11px;"></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:40px 1fr;gap:4px;margin-bottom:8px;font-size:12px;">
+                        <div style="display:flex;align-items:flex-end;padding-bottom:4px;font-weight:600;">OS</div>
+                        <div><input type="text" name="os_value" class="form-control" style="font-size:11px;"></div>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="tyAjaxMeasure('tyIopForm','{% url "doctor_add_iop" doctor.pk active_visit.pk %}','iop')">Qo'shish</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="tyTogglePanel('tyIopPanel')">Yopish</button>
+                </form>
+            </div>
+
+            <!-- Inline VA (Korreksiya) panel -->
+            <div id="tyVaPanel" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px;">
+                <div style="font-weight:600;font-size:12px;margin-bottom:8px;">Korreksiya (VA) kiritish</div>
+                <form id="tyVaForm">
+                    {% csrf_token %}
+                    <div style="font-size:11px;font-weight:600;margin-bottom:4px;color:var(--text-muted);">Uzoq (Вдаль)</div>
+                    <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr 1fr;gap:3px;margin-bottom:3px;font-size:11px;">
+                        <div style="font-weight:600;display:flex;align-items:flex-end;padding-bottom:3px;">OD</div>
+                        <div><label style="font-size:9px;">SPH</label><input type="text" name="uzoq_od_sph" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">CYL</label><input type="text" name="uzoq_od_cyl" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">AX</label><input type="text" name="uzoq_od_ax" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">VIS</label><input type="text" name="uzoq_od_vis" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr 1fr;gap:3px;margin-bottom:8px;font-size:11px;">
+                        <div style="font-weight:600;display:flex;align-items:flex-end;padding-bottom:3px;">OS</div>
+                        <div><label style="font-size:9px;">SPH</label><input type="text" name="uzoq_os_sph" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">CYL</label><input type="text" name="uzoq_os_cyl" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">AX</label><input type="text" name="uzoq_os_ax" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">VIS</label><input type="text" name="uzoq_os_vis" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                    </div>
+                    <div style="font-size:11px;font-weight:600;margin-bottom:4px;color:var(--text-muted);">Yaqin (Вблизи)</div>
+                    <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr 1fr;gap:3px;margin-bottom:3px;font-size:11px;">
+                        <div style="font-weight:600;display:flex;align-items:flex-end;padding-bottom:3px;">OD</div>
+                        <div><label style="font-size:9px;">SPH</label><input type="text" name="yaqin_od_sph" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">CYL</label><input type="text" name="yaqin_od_cyl" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">AX</label><input type="text" name="yaqin_od_ax" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">VIS</label><input type="text" name="yaqin_od_vis" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr 1fr;gap:3px;margin-bottom:8px;font-size:11px;">
+                        <div style="font-weight:600;display:flex;align-items:flex-end;padding-bottom:3px;">OS</div>
+                        <div><label style="font-size:9px;">SPH</label><input type="text" name="yaqin_os_sph" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">CYL</label><input type="text" name="yaqin_os_cyl" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">AX</label><input type="text" name="yaqin_os_ax" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">VIS</label><input type="text" name="yaqin_os_vis" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                    </div>
+                    <div style="font-size:11px;font-weight:600;margin-bottom:4px;color:var(--text-muted);">MKL</div>
+                    <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr 1fr;gap:3px;margin-bottom:3px;font-size:11px;">
+                        <div style="font-weight:600;display:flex;align-items:flex-end;padding-bottom:3px;">OD</div>
+                        <div><label style="font-size:9px;">SPH</label><input type="text" name="mkl_od_sph" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">CYL</label><input type="text" name="mkl_od_cyl" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">AX</label><input type="text" name="mkl_od_ax" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">VIS</label><input type="text" name="mkl_od_vis" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                    </div>
+                    <div style="display:grid;grid-template-columns:40px 1fr 1fr 1fr 1fr;gap:3px;margin-bottom:8px;font-size:11px;">
+                        <div style="font-weight:600;display:flex;align-items:flex-end;padding-bottom:3px;">OS</div>
+                        <div><label style="font-size:9px;">SPH</label><input type="text" name="mkl_os_sph" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">CYL</label><input type="text" name="mkl_os_cyl" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">AX</label><input type="text" name="mkl_os_ax" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                        <div><label style="font-size:9px;">VIS</label><input type="text" name="mkl_os_vis" class="form-control" style="font-size:11px;padding:3px 5px;"></div>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="tyAjaxMeasure('tyVaForm','{% url "doctor_add_visual_acuity" doctor.pk active_visit.pk %}','va')">Qo'shish</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="tyTogglePanel('tyVaPanel')">Yopish</button>
+                </form>
+            </div>
+
+            <!-- Inline File panel -->
+            <div id="tyFilePanel" style="display:none;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px;">
+                <div style="font-weight:600;font-size:12px;margin-bottom:8px;">Fayl biriktirish</div>
+                <form id="tyFileForm">
+                    {% csrf_token %}
+                    <input type="text" name="title" class="form-control" placeholder="Fayl nomi (masalan: Ko'z fondi)" style="font-size:12px;margin-bottom:6px;">
+                    <input type="file" name="attachments" class="form-control" multiple accept="image/*,.pdf" style="font-size:12px;margin-bottom:8px;">
+                    <button type="button" class="btn btn-primary btn-sm" onclick="tyAjaxFile()">Yuklash</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="tyTogglePanel('tyFilePanel')">Yopish</button>
+                </form>
+            </div>
+
+            <!-- Live data (REF/KRT/IOP/VA/Files added during this session) -->
+            <div id="tyLiveData" style="background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px 12px;margin-top:10px;font-size:12px;">
+                <div style="font-weight:600;color:var(--text-muted);font-size:11px;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px;">Qo'shilgan ma'lumotlar</div>
+                <div id="tyRefList">{% for r in active_visit.refractions.all %}<div class="ty-data-row"><span style="font-weight:600;color:#0077b6;">REF</span> <span style="color:var(--text-muted);font-size:11px;">{{ r.created_at|date:"d.m.Y" }}</span> &nbsp; OD: {{ r.od_s }} {{ r.od_c }} {{ r.od_a }} &nbsp;|&nbsp; OS: {{ r.os_s }} {{ r.os_c }} {{ r.os_a }}</div>{% endfor %}</div>
+                <div id="tyKrtList">{% for k in active_visit.krts.all %}<div class="ty-data-row"><span style="font-weight:600;color:#2d6a4f;">KRT</span> <span style="color:var(--text-muted);font-size:11px;">{{ k.created_at|date:"d.m.Y" }}</span> &nbsp; OD: {{ k.od_d }} {{ k.od_mm }} {{ k.od_a }} &nbsp;|&nbsp; OS: {{ k.os_d }} {{ k.os_mm }} {{ k.os_a }}</div>{% endfor %}</div>
+                <div id="tyIopList">{% for i in active_visit.iops.all %}<div class="ty-data-row"><span style="font-weight:600;color:#9b2226;">IOP</span> <span style="color:var(--text-muted);font-size:11px;">{{ i.created_at|date:"d.m.Y" }}</span> &nbsp; OD: {{ i.od_value }} &nbsp;|&nbsp; OS: {{ i.os_value }}</div>{% endfor %}</div>
+                <div id="tyVaList">{% for v in active_visit.visual_acuities.all %}<div class="ty-data-row"><span style="font-weight:600;color:#7209b7;">VA</span> <span style="color:var(--text-muted);font-size:11px;">{{ v.created_at|date:"d.m.Y" }}</span> &nbsp; Uzoq OD: {{ v.uzoq_od_sph }}/{{ v.uzoq_od_vis }} OS: {{ v.uzoq_os_sph }}/{{ v.uzoq_os_vis }}</div>{% endfor %}</div>
+                <div id="tyFileList">{% for att in active_visit.visit_attachments.all %}<div class="ty-data-row">📎 {% if att.title %}<strong style="font-size:11px;">{{ att.title }}</strong> — {% endif %}<a href="{{ att.file.url }}" target="_blank" style="color:var(--accent);font-size:11px;">{{ att.file.name|slice:"12:" }}</a></div>{% endfor %}</div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -1216,7 +1371,7 @@
 <!-- KO'SQULILIK (STRABISMUS) MODAL -->
 <div class="modal-backdrop" id="strabismusModal">
     <div class="modal" style="max-width:750px;max-height:90vh;overflow-y:auto;">
-        <h3>Ko'squlilik <span style="color:var(--text-muted);font-weight:400;font-size:13px;">(Косоглазие)</span></h3>
+        <h3>Ko'z g'ilayligi <span style="color:var(--text-muted);font-weight:400;font-size:13px;">(Косоглазие)</span></h3>
         <form method="post" action="{% url 'doctor_add_strabismus' doctor.pk active_visit.pk %}">
             {% csrf_token %}
             <div class="form-group"><label>Protokol № <span style="color:var(--text-muted);font-weight:400;font-size:11px;">(Номер протокола)</span></label><input type="text" name="protocol_number" class="form-control" placeholder="Protokol raqamini kiriting"></div>
@@ -1632,12 +1787,32 @@
 </div>
 
 <script>
-function openModal(id) { document.getElementById(id).classList.add('active'); }
+function openModal(id) {
+    document.getElementById(id).classList.add('active');
+    /* re-trigger auto-grow for pre-filled textareas */
+    document.getElementById(id).querySelectorAll('textarea').forEach(function(ta) {
+        ta.style.overflow = 'hidden';
+        ta.style.resize = 'none';
+        ta.style.height = 'auto';
+        ta.style.height = ta.scrollHeight + 'px';
+    });
+}
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 function openDocOverlay(id) { document.getElementById(id).classList.add('active'); }
 function closeDocOverlay(id) {
     var el = document.getElementById(id);
     el.classList.remove('active');
+}
+function downloadTibbiyYozuv(overlayId) {
+    var inner = document.getElementById(overlayId).querySelector('.form-overlay-inner');
+    var html = inner ? inner.innerHTML : '';
+    var full = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Tibbiy yozuv</title><style>body{margin:10mm;font-family:\'Times New Roman\',serif;}.no-print{display:none!important;}@page{size:A4 portrait;margin:10mm;}</style></head><body>' + html + '</body></html>';
+    var blob = new Blob([full], {type: 'text/html'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'tibbiy_yozuv.html';
+    a.click();
+    URL.revokeObjectURL(a.href);
 }
 function switchToExamEdit(pk) {
     document.getElementById('examView' + pk).style.display = 'none';
@@ -1663,6 +1838,91 @@ function addFileInput() {
     div.innerHTML = '<input type="file" name="attachments" class="form-control" style="font-size:12px;">';
     container.appendChild(div);
     document.getElementById('fileSubmitBtn').style.display = 'block';
+}
+
+/* ── Tibbiy yozuv AJAX helpers ── */
+function tyTogglePanel(id) {
+    var panels = ['tyRefPanel','tyKrtPanel','tyIopPanel','tyVaPanel','tyFilePanel'];
+    panels.forEach(function(p) {
+        var el = document.getElementById(p);
+        if (el) el.style.display = (p === id && el.style.display === 'none') ? 'block' : 'none';
+    });
+}
+
+function tyAjaxSave() {
+    var form = document.getElementById('tibbiyYozuvForm');
+    var btn = document.getElementById('tyYakunlashBtn');
+    var fd = new FormData(form);
+    btn.disabled = true;
+    btn.textContent = 'Saqlanmoqda...';
+    fetch(form.action, {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd
+    }).then(function(r){ return r.json(); })
+    .then(function(data) {
+        btn.textContent = 'Saqlandi ✓';
+        setTimeout(function(){ closeModal('tibbiyYozuvModal'); }, 700);
+    }).catch(function() {
+        btn.disabled = false;
+        btn.textContent = 'Xato! Qayta urining';
+        setTimeout(function(){ btn.textContent = 'Saqlash'; }, 2500);
+    });
+}
+
+function tyAjaxMeasure(formId, url, type) {
+    var form = document.getElementById(formId);
+    var fd = new FormData(form);
+    fetch(url, {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd
+    }).then(function(r){ return r.json(); })
+    .then(function(d) {
+        if (!d.ok) return;
+        var row = document.createElement('div');
+        row.className = 'ty-data-row';
+        var text = '';
+        var today = d.date || '';
+        if (type === 'ref') {
+            text = '<span style="font-weight:600;color:#0077b6;">REF</span> <span style="color:var(--text-muted);font-size:11px;">' + today + '</span> &nbsp; OD: ' + (d.od_s||'') + ' ' + (d.od_c||'') + ' ' + (d.od_a||'') + ' &nbsp;|&nbsp; OS: ' + (d.os_s||'') + ' ' + (d.os_c||'') + ' ' + (d.os_a||'');
+            document.getElementById('tyRefList').appendChild(row);
+        } else if (type === 'krt') {
+            text = '<span style="font-weight:600;color:#2d6a4f;">KRT</span> <span style="color:var(--text-muted);font-size:11px;">' + today + '</span> &nbsp; OD: ' + (d.od_d||'') + ' ' + (d.od_mm||'') + ' ' + (d.od_a||'') + ' &nbsp;|&nbsp; OS: ' + (d.os_d||'') + ' ' + (d.os_mm||'') + ' ' + (d.os_a||'');
+            document.getElementById('tyKrtList').appendChild(row);
+        } else if (type === 'iop') {
+            text = '<span style="font-weight:600;color:#9b2226;">IOP</span> <span style="color:var(--text-muted);font-size:11px;">' + today + '</span> &nbsp; OD: ' + (d.od_value||'') + ' &nbsp;|&nbsp; OS: ' + (d.os_value||'');
+            document.getElementById('tyIopList').appendChild(row);
+        } else if (type === 'va') {
+            text = '<span style="font-weight:600;color:#7209b7;">VA</span> <span style="color:var(--text-muted);font-size:11px;">' + today + '</span> &nbsp; Uzoq OD: ' + (d.uzoq_od_sph||'') + '/' + (d.uzoq_od_vis||'') + ' OS: ' + (d.uzoq_os_sph||'') + '/' + (d.uzoq_os_vis||'');
+            document.getElementById('tyVaList').appendChild(row);
+        }
+        row.innerHTML = text;
+        form.reset();
+        tyTogglePanel('__none__');
+    }).catch(function(){ alert('Saqlashda xato yuz berdi'); });
+}
+
+function tyAjaxFile() {
+    var form = document.getElementById('tyFileForm');
+    var fd = new FormData(form);
+    fetch('{% url "doctor_ajax_upload_attachment" doctor.pk active_visit.pk %}', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd
+    }).then(function(r){ return r.json(); })
+    .then(function(d) {
+        if (!d.ok) return;
+        var list = document.getElementById('tyFileList');
+        d.files.forEach(function(f) {
+            var row = document.createElement('div');
+            row.className = 'ty-data-row';
+            row.innerHTML = '📎 ' + (f.title ? '<strong style="font-size:11px;">' + f.title + '</strong> — ' : '') + '<a href="' + f.url + '" target="_blank" style="color:var(--accent);font-size:11px;">' + f.name + '</a>';
+            list.appendChild(row);
+        });
+        form.reset();
+        tyTogglePanel('__none__');
+    }).catch(function(){ alert('Fayl yuklashda xato'); });
 }
 
 /* Auto-save notes before ANY form submission that reloads the page */

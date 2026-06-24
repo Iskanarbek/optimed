@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+{% load clinic_filters %}
+{% block title %}Boshqarish — Laboratoriya{% endblock %}
+{% block nav_lab_boshqarish %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>Boshqarish</h1>
+        <p>Laboratoriya xizmatlari ro'yxati</p>
+    </div>
+    <button class="btn btn-primary" onclick="document.getElementById('addModal').style.display='flex'">+ Yangi xizmat</button>
+</div>
+
+<div class="card animate-in">
+    <div class="card-header">
+        <h3>Barcha xizmatlar</h3>
+        <span class="badge badge-info">{{ services|length }} ta</span>
+    </div>
+    <div style="overflow-x:auto;">
+        <table style="width:100%;border-collapse:collapse;font-size:13px;">
+            <thead>
+                <tr style="background:var(--bg-secondary);text-align:left;">
+                    <th style="padding:8px 10px;width:60px;">#</th>
+                    <th style="padding:8px 10px;">Xizmat nomi</th>
+                    <th style="padding:8px 10px;width:160px;">Referans ko'rsatkich</th>
+                    <th style="padding:8px 10px;width:110px;">Narxi</th>
+                    <th style="padding:8px 10px;width:80px;text-align:center;">Amal</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for svc in services %}
+                <tr style="border-bottom:1px solid var(--border);" id="row-{{ svc.pk }}">
+                    <td style="padding:7px 10px;color:var(--text-secondary);">{{ svc.number }}</td>
+                    <td style="padding:7px 10px;">{{ svc.name }}</td>
+                    <td style="padding:7px 10px;color:var(--text-secondary);font-size:12px;white-space:pre-wrap;">{{ svc.reference_value|default:"—" }}</td>
+                    <td style="padding:7px 10px;">{{ svc.price|format_som }}</td>
+                    <td style="padding:7px 10px;text-align:center;">
+                        <button class="btn btn-sm" style="padding:3px 8px;margin-right:2px;"
+                            data-pk="{{ svc.pk }}"
+                            data-number="{{ svc.number }}"
+                            data-name="{{ svc.name|escapejs }}"
+                            data-price="{{ svc.price }}"
+                            data-ref="{{ svc.reference_value|escapejs }}"
+                            onclick="openEdit(this)">✎</button>
+                        <form method="post" action="{% url 'lab_service_delete' svc.pk %}" style="display:inline;" onsubmit="return confirm('O\'chirishni tasdiqlang?')">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm" style="padding:3px 8px;background:var(--danger,#e74c3c);color:#fff;">✕</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- ADD MODAL -->
+<div id="addModal" class="modal-backdrop" style="display:none;align-items:center;justify-content:center;">
+    <div class="card" style="width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;">
+        <div class="card-header">
+            <h3>Yangi xizmat qo'shish</h3>
+            <button class="btn btn-sm" onclick="document.getElementById('addModal').style.display='none'">✕</button>
+        </div>
+        <form method="post" action="{% url 'lab_service_add' %}">
+            {% csrf_token %}
+            <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+                <div>
+                    <label class="form-label">Tartib raqami</label>
+                    <input type="number" name="number" class="form-control" required>
+                </div>
+                <div>
+                    <label class="form-label">Xizmat nomi</label>
+                    <input type="text" name="name" class="form-control" required>
+                </div>
+                <div>
+                    <label class="form-label">Narxi (so'm)</label>
+                    <input type="number" name="price" class="form-control" value="0">
+                </div>
+                <div>
+                    <label class="form-label">Referans ko'rsatkich</label>
+                    <textarea name="reference_value" class="form-control" rows="3"></textarea>
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button type="button" class="btn" onclick="document.getElementById('addModal').style.display='none'">Bekor</button>
+                    <button type="submit" class="btn btn-primary">Saqlash</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div id="editModal" class="modal-backdrop" style="display:none;align-items:center;justify-content:center;">
+    <div class="card" style="width:520px;max-width:95vw;max-height:90vh;overflow-y:auto;">
+        <div class="card-header">
+            <h3>Xizmatni tahrirlash</h3>
+            <button class="btn btn-sm" onclick="document.getElementById('editModal').style.display='none'">✕</button>
+        </div>
+        <form method="post" id="editForm" action="">
+            {% csrf_token %}
+            <div style="padding:16px;display:flex;flex-direction:column;gap:12px;">
+                <div>
+                    <label class="form-label">Tartib raqami</label>
+                    <input type="number" name="number" id="editNumber" class="form-control" required>
+                </div>
+                <div>
+                    <label class="form-label">Xizmat nomi</label>
+                    <input type="text" name="name" id="editName" class="form-control" required>
+                </div>
+                <div>
+                    <label class="form-label">Narxi (so'm)</label>
+                    <input type="number" name="price" id="editPrice" class="form-control">
+                </div>
+                <div>
+                    <label class="form-label">Referans ko'rsatkich</label>
+                    <textarea name="reference_value" id="editRef" class="form-control" rows="3"></textarea>
+                </div>
+                <div style="display:flex;gap:8px;justify-content:flex-end;">
+                    <button type="button" class="btn" onclick="document.getElementById('editModal').style.display='none'">Bekor</button>
+                    <button type="submit" class="btn btn-primary">Saqlash</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEdit(btn) {
+    document.getElementById('editNumber').value = btn.dataset.number;
+    document.getElementById('editName').value = btn.dataset.name;
+    document.getElementById('editPrice').value = btn.dataset.price;
+    document.getElementById('editRef').value = btn.dataset.ref;
+    document.getElementById('editForm').action = '/lab/boshqarish/' + btn.dataset.pk + '/edit/';
+    document.getElementById('editModal').style.display = 'flex';
+}
+document.getElementById('addModal').addEventListener('click', function(e){if(e.target===this)this.style.display='none';});
+document.getElementById('editModal').addEventListener('click', function(e){if(e.target===this)this.style.display='none';});
+</script>
+{% endblock %}

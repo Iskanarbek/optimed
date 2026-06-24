@@ -53,6 +53,25 @@ def get_item(dictionary, key):
 
 
 @register.filter
+def is_image(file_field):
+    """Return True if the file field name looks like an image."""
+    try:
+        name = str(file_field.name).lower()
+        return name.endswith(('.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'))
+    except Exception:
+        return False
+
+
+@register.filter
+def is_pdf(file_field):
+    """Return True if the file field name looks like a PDF."""
+    try:
+        return str(file_field.name).lower().endswith('.pdf')
+    except Exception:
+        return False
+
+
+@register.filter
 def visit_service_names(visit):
     """Return comma-separated service names for a visit (from VisitService M2M)."""
     try:

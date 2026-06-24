@@ -4,7 +4,7 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = 'g@m9cmgtix&_0o0(_0+=r0&72tm1vx1cjo(3f+#2m_uv9h4qc('
-DEBUG = False
+DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 # Silence SSL/HTTPS warnings — this app runs on a local clinic intranet (HTTP only)
@@ -70,7 +70,7 @@ STATIC_URL = 'static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-MEDIA_URL = 'media/'
+MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

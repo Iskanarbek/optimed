@@ -17,6 +17,8 @@ from .models import (
     EyeVisualAcuity, EyeExamForm, DischargeForm,
     LasikForm, StrabismusForm, PostOpForm,
     LabVisit, LabVisitService, LabQueueNumber, get_next_lab_queue_number,
+    LabServiceTemplate,
+    OptikaPatientPrescription, OptikaSale,
 )
 
 
@@ -67,15 +69,15 @@ def login_required_custom(view_func):
     return wrapper
 
 
-def role_required(role):
-    """Decorator: check that logged-in user has a specific role."""
+def role_required(*roles):
+    """Decorator: check that logged-in user has one of the specified roles."""
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
             session_role = request.session.get('user_role')
             if not session_role:
                 return redirect('login')
-            if session_role != role:
+            if session_role not in roles:
                 return redirect('login')
             return view_func(request, *args, **kwargs)
         return wrapper
@@ -573,21 +575,14 @@ def analytics_overall(request):
     # Revenue from medical visits
     medical_revenue = sum(v.final_price for v in completed_visits)
 
-    # Glasses profit
-    glasses_sales = GlassSale.objects.all()
-    if date_from:
-        glasses_sales = glasses_sales.filter(created_at__gte=date_from)
-    glasses_revenue = sum(s.total_revenue for s in glasses_sales)
-    glasses_profit = sum(s.total_profit for s in glasses_sales)
-
     # Lab revenue
     lab_visits_qs = LabVisit.objects.filter(status='done')
     if date_from:
         lab_visits_qs = lab_visits_qs.filter(created_at__gte=date_from)
     lab_revenue = sum(lv.total_price for lv in lab_visits_qs)
 
-    # Total revenue (medical + glasses + lab)
-    revenue = medical_revenue + glasses_revenue + lab_revenue
+    # Total revenue (medical + lab only — optika is separate)
+    revenue = medical_revenue + lab_revenue
 
     # Referral commissions
     total_commission = sum(v.commission_amount for v in completed_visits)
@@ -894,18 +889,17 @@ def add_patient(request):
 
             # Create a lab visit for today
             lab_visit = LabVisit.objects.create(patient=patient, status='waiting')
-            # Add selected lab services
+            # Add selected lab services from DB template
+            svc_map = {t.number: t for t in LabServiceTemplate.objects.filter(number__in=[int(x) for x in lab_service_ids])}
             for ls_id in lab_service_ids:
-                ls_id = int(ls_id)
-                for num, name, price in LAB_SERVICES:
-                    if num == ls_id:
-                        LabVisitService.objects.create(
-                            lab_visit=lab_visit,
-                            service_number=num,
-                            service_name=name,
-                            price=price,
-                        )
-                        break
+                tpl = svc_map.get(int(ls_id))
+                if tpl:
+                    LabVisitService.objects.create(
+                        lab_visit=lab_visit,
+                        service_number=tpl.number,
+                        service_name=tpl.name,
+                        price=tpl.price,
+                    )
             # Lab queue number (resets daily)
             try:
                 lqn = get_next_lab_queue_number()
@@ -1032,17 +1026,16 @@ def redirect_patient(request, pk):
 
             lab_visit = LabVisit.objects.create(patient=patient, status='waiting')
             if lab_service_ids:
+                svc_map2 = {t.number: t for t in LabServiceTemplate.objects.filter(number__in=[int(x) for x in lab_service_ids])}
                 for ls_id in lab_service_ids:
-                    ls_id = int(ls_id)
-                    for num, name, price, *rest in LAB_SERVICES:
-                        if num == ls_id:
-                            LabVisitService.objects.create(
-                                lab_visit=lab_visit,
-                                service_number=num,
-                                service_name=name,
-                                price=price,
-                            )
-                            break
+                    tpl = svc_map2.get(int(ls_id))
+                    if tpl:
+                        LabVisitService.objects.create(
+                            lab_visit=lab_visit,
+                            service_number=tpl.number,
+                            service_name=tpl.name,
+                            price=tpl.price,
+                        )
             # Lab queue number (resets daily)
             try:
                 lqn = get_next_lab_queue_number()
@@ -1671,7 +1664,24 @@ def doctor_update_visit(request, doctor_id, visit_id):
         for f in request.FILES.getlist('attachments'):
             VisitAttachment.objects.create(visit=visit, file=f)
 
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True})
+
     return redirect('doctor_patient_detail', doctor_id=doctor_id, patient_id=visit.patient_id)
+
+
+@login_required_custom
+def doctor_ajax_upload_attachment(request, doctor_id, visit_id):
+    """AJAX file upload for doctor inside tibbiy yozuv modal."""
+    visit = get_object_or_404(Visit, pk=visit_id)
+    if request.method == 'POST':
+        title = request.POST.get('title', '').strip()
+        files_data = []
+        for f in request.FILES.getlist('attachments'):
+            att = VisitAttachment.objects.create(visit=visit, file=f, title=title)
+            files_data.append({'url': att.file.url, 'name': f.name, 'title': att.title})
+        return JsonResponse({'ok': True, 'files': files_data})
+    return JsonResponse({'ok': False}, status=400)
 
 
 @login_required_custom
@@ -2233,18 +2243,17 @@ def activate_scheduled_visit(request, pk):
         # Restore lab services from stored data
         if sv.lab_services_data:
             try:
-                lab_service_ids = json.loads(sv.lab_services_data)
+                lab_service_ids = [int(x) for x in json.loads(sv.lab_services_data)]
+                svc_map = {t.number: t for t in LabServiceTemplate.objects.filter(number__in=lab_service_ids)}
                 for ls_id in lab_service_ids:
-                    ls_id = int(ls_id)
-                    for num, name, price in LAB_SERVICES:
-                        if num == ls_id:
-                            LabVisitService.objects.create(
-                                lab_visit=lab_visit,
-                                service_number=num,
-                                service_name=name,
-                                price=price,
-                            )
-                            break
+                    tpl = svc_map.get(ls_id)
+                    if tpl:
+                        LabVisitService.objects.create(
+                            lab_visit=lab_visit,
+                            service_number=tpl.number,
+                            service_name=tpl.name,
+                            price=tpl.price,
+                        )
             except (json.JSONDecodeError, ValueError):
                 pass
         # Lab queue number
@@ -2602,19 +2611,15 @@ def lab_panel(request):
 
 @role_required('laboratory')
 def lab_visit_detail(request, pk):
-    from clinic.lab_services import get_lab_service_by_number
     lv = get_object_or_404(LabVisit.objects.select_related('patient').prefetch_related('lab_services'), pk=pk)
     if lv.status == 'waiting':
         lv.status = 'in_progress'
         lv.save(update_fields=['status'])
-    # Build reference values map: service_pk -> reference string
+    # Build reference values map from DB
+    ref_map = {t.number: t.reference_value for t in LabServiceTemplate.objects.all()}
     ref_values = {}
     for svc in lv.lab_services.all():
-        row = get_lab_service_by_number(svc.service_number)
-        if row and len(row) >= 4:
-            ref_values[svc.pk] = row[3]
-        else:
-            ref_values[svc.pk] = ''
+        ref_values[svc.pk] = ref_map.get(svc.service_number, '')
     return render(request, 'lab/visit_detail.html', {'lab_visit': lv, 'ref_values': ref_values})
 
 
@@ -2643,10 +2648,18 @@ def api_lab_services_search(request):
     num = request.GET.get('num', '').strip()
     if len(q) < 1 and len(num) < 1:
         return JsonResponse({'results': []})
-    results = search_lab_services(q, num)[:30]
+    qs = LabServiceTemplate.objects.all()
+    if num:
+        qs = qs.filter(number__startswith=num)
+    if q:
+        if q.isdigit() and not num:
+            qs = qs.filter(number__startswith=q)
+        else:
+            qs = qs.filter(name__icontains=q)
+    results = qs[:30]
     return JsonResponse({'results': [
-        {'number': num, 'name': name, 'price': price}
-        for num, name, price, *rest in results
+        {'number': svc.number, 'name': svc.name, 'price': svc.price}
+        for svc in results
     ]})
 
 
@@ -2666,7 +2679,7 @@ def api_check_phone(request):
 def doctor_add_refraction(request, doctor_id, visit_id):
     visit = get_object_or_404(Visit, pk=visit_id)
     if request.method == 'POST':
-        EyeRefraction.objects.create(
+        ref = EyeRefraction.objects.create(
             visit=visit, patient=visit.patient,
             od_s=request.POST.get('od_s', ''),
             od_c=request.POST.get('od_c', ''),
@@ -2675,6 +2688,10 @@ def doctor_add_refraction(request, doctor_id, visit_id):
             os_c=request.POST.get('os_c', ''),
             os_a=request.POST.get('os_a', ''),
         )
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True, 'date': ref.created_at.strftime('%d.%m.%Y'),
+                'od_s': ref.od_s, 'od_c': ref.od_c, 'od_a': ref.od_a,
+                'os_s': ref.os_s, 'os_c': ref.os_c, 'os_a': ref.os_a})
     return redirect('doctor_patient_detail', doctor_id=doctor_id, patient_id=visit.patient_id)
 
 
@@ -2704,7 +2721,7 @@ def doctor_delete_refraction(request, doctor_id, pk):
 def doctor_add_krt(request, doctor_id, visit_id):
     visit = get_object_or_404(Visit, pk=visit_id)
     if request.method == 'POST':
-        EyeKRT.objects.create(
+        krt = EyeKRT.objects.create(
             visit=visit, patient=visit.patient,
             od_d=request.POST.get('od_d', ''),
             od_mm=request.POST.get('od_mm', ''),
@@ -2713,6 +2730,10 @@ def doctor_add_krt(request, doctor_id, visit_id):
             os_mm=request.POST.get('os_mm', ''),
             os_a=request.POST.get('os_a', ''),
         )
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True, 'date': krt.created_at.strftime('%d.%m.%Y'),
+                'od_d': krt.od_d, 'od_mm': krt.od_mm, 'od_a': krt.od_a,
+                'os_d': krt.os_d, 'os_mm': krt.os_mm, 'os_a': krt.os_a})
     return redirect('doctor_patient_detail', doctor_id=doctor_id, patient_id=visit.patient_id)
 
 
@@ -2742,11 +2763,14 @@ def doctor_delete_krt(request, doctor_id, pk):
 def doctor_add_iop(request, doctor_id, visit_id):
     visit = get_object_or_404(Visit, pk=visit_id)
     if request.method == 'POST':
-        EyeIOP.objects.create(
+        iop = EyeIOP.objects.create(
             visit=visit, patient=visit.patient,
             od_value=request.POST.get('od_value', ''),
             os_value=request.POST.get('os_value', ''),
         )
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True, 'date': iop.created_at.strftime('%d.%m.%Y'),
+                'od_value': iop.od_value, 'os_value': iop.os_value})
     return redirect('doctor_patient_detail', doctor_id=doctor_id, patient_id=visit.patient_id)
 
 
@@ -2774,7 +2798,7 @@ def doctor_delete_iop(request, doctor_id, pk):
 def doctor_add_visual_acuity(request, doctor_id, visit_id):
     visit = get_object_or_404(Visit, pk=visit_id)
     if request.method == 'POST':
-        EyeVisualAcuity.objects.create(
+        va = EyeVisualAcuity.objects.create(
             visit=visit, patient=visit.patient,
             uzoq_od_sph=request.POST.get('uzoq_od_sph', ''),
             uzoq_od_cyl=request.POST.get('uzoq_od_cyl', ''),
@@ -2801,6 +2825,16 @@ def doctor_add_visual_acuity(request, doctor_id, visit_id):
             mkl_os_ax=request.POST.get('mkl_os_ax', ''),
             mkl_os_vis=request.POST.get('mkl_os_vis', ''),
         )
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({'ok': True, 'date': va.created_at.strftime('%d.%m.%Y'),
+                'uzoq_od_sph': va.uzoq_od_sph, 'uzoq_od_cyl': va.uzoq_od_cyl,
+                'uzoq_od_ax': va.uzoq_od_ax, 'uzoq_od_vis': va.uzoq_od_vis,
+                'uzoq_os_sph': va.uzoq_os_sph, 'uzoq_os_cyl': va.uzoq_os_cyl,
+                'uzoq_os_ax': va.uzoq_os_ax, 'uzoq_os_vis': va.uzoq_os_vis,
+                'yaqin_od_sph': va.yaqin_od_sph, 'yaqin_od_vis': va.yaqin_od_vis,
+                'yaqin_os_sph': va.yaqin_os_sph, 'yaqin_os_vis': va.yaqin_os_vis,
+                'mkl_od_sph': va.mkl_od_sph, 'mkl_od_vis': va.mkl_od_vis,
+                'mkl_os_sph': va.mkl_os_sph, 'mkl_os_vis': va.mkl_os_vis})
     return redirect('doctor_patient_detail', doctor_id=doctor_id, patient_id=visit.patient_id)
 
 
@@ -3146,7 +3180,7 @@ def receptionist_reference_indicators(request):
 
 
 @login_required_custom
-@role_required('receptionist')
+@role_required('receptionist', 'admin')
 def receptionist_documents(request):
     notif_count, proc_count = _get_receptionist_badge_counts()
     recent_docs = []
@@ -3160,10 +3194,11 @@ def receptionist_documents(request):
         recent_docs.append(_doc_entry('strabismus', "Ko'squlilik", s))
     for p in PostOpForm.objects.select_related('patient', 'doctor').order_by('-created_at')[:10]:
         recent_docs.append(_doc_entry('postop', "Operatsionnaya ko'chirma", p))
-    # Tibbiy yozuv = visits with any medical content
+    # Tibbiy yozuv = all visits where a doctor was assigned (any status except waiting)
     for v in Visit.objects.select_related('patient', 'doctor').filter(
-        Q(tashxis__gt='') | Q(tavsiya__gt='') | Q(anamnesis_morbi__gt='')
-    ).order_by('-created_at')[:10]:
+        doctor__isnull=False,
+        status__in=['in_progress', 'done', 'has_procedure']
+    ).order_by('-created_at')[:30]:
         recent_docs.append({
             'type': 'tibbiy_yozuv', 'label': 'Tibbiy yozuv',
             'id': v.pk, 'protocol': '',
@@ -3173,7 +3208,7 @@ def receptionist_documents(request):
             'date_raw': v.created_at,
         })
     recent_docs.sort(key=lambda x: x['date_raw'], reverse=True)
-    recent_docs = recent_docs[:20]
+    recent_docs = recent_docs[:50]
     return render(request, 'receptionist/documents.html', {
         'notif_count': notif_count,
         'proc_count': proc_count,
@@ -3182,14 +3217,18 @@ def receptionist_documents(request):
 
 
 @login_required_custom
-@role_required('receptionist')
+@role_required('receptionist', 'admin')
 def receptionist_documents_search(request):
     query = request.GET.get('q', '').strip()
     results = []
     if query:
-        # Search by patient phone number (always try this first)
+        # Search by patient phone or name
         phone = normalize_phone(query)
-        patients = Patient.objects.filter(phone=phone)
+        patients = Patient.objects.filter(
+            Q(phone__icontains=phone) |
+            Q(name__icontains=query) |
+            Q(surname__icontains=query)
+        ).distinct()
         for patient in patients:
             pname = f"{patient.name} {patient.surname}"
             for e in patient.eye_exam_forms.select_related('doctor').order_by('created_at'):
@@ -3260,7 +3299,7 @@ def receptionist_documents_search(request):
 
 
 @login_required_custom
-@role_required('receptionist')
+@role_required('receptionist', 'admin')
 def receptionist_document_view(request, form_type, pk):
     notif_count, proc_count = _get_receptionist_badge_counts()
     type_map = {
@@ -3275,8 +3314,102 @@ def receptionist_document_view(request, form_type, pk):
         from django.http import Http404
         raise Http404
     Model, template = type_map[form_type]
-    doc = get_object_or_404(Model.objects.select_related('patient', 'doctor'), pk=pk)
+    if form_type == 'tibbiy_yozuv':
+        doc = get_object_or_404(
+            Model.objects.select_related('patient', 'doctor')
+                .prefetch_related('refractions', 'krts', 'iops', 'visual_acuities', 'visit_attachments'),
+            pk=pk,
+        )
+    else:
+        doc = get_object_or_404(Model.objects.select_related('patient', 'doctor'), pk=pk)
     return render(request, template, {'doc': doc, 'notif_count': notif_count, 'proc_count': proc_count})
+
+
+@login_required_custom
+@role_required('receptionist', 'admin', 'doctor')
+def receptionist_tibbiy_yozuv_print(request, visit_id):
+    doc = get_object_or_404(
+        Visit.objects.select_related('patient', 'doctor')
+            .prefetch_related('refractions', 'krts', 'iops', 'visual_acuities', 'visit_attachments'),
+        pk=visit_id,
+    )
+    show_files = request.GET.get('files', '1') != '0'
+    return render(request, 'receptionist/tibbiy_yozuv_print.html', {'doc': doc, 'show_files': show_files})
+
+
+def visit_share_view(request, token):
+    """Public shareable tibbiy yozuv — no login required."""
+    doc = get_object_or_404(
+        Visit.objects.select_related('patient', 'doctor')
+            .prefetch_related('refractions', 'krts', 'iops', 'visual_acuities', 'visit_attachments'),
+        share_token=token,
+    )
+    return render(request, 'receptionist/tibbiy_yozuv_print.html', {'doc': doc, 'show_files': True})
+
+
+@login_required_custom
+@role_required('receptionist', 'admin')
+def receptionist_add_attachment(request, visit_id):
+    if request.method != 'POST':
+        from django.http import HttpResponseNotAllowed
+        return HttpResponseNotAllowed(['POST'])
+    visit = get_object_or_404(Visit, pk=visit_id)
+    title = request.POST.get('title', '').strip()
+    files = request.FILES.getlist('files')
+    saved = []
+    for f in files:
+        att = VisitAttachment.objects.create(visit=visit, file=f, title=title)
+        saved.append({'url': att.file.url, 'name': f.name, 'title': att.title})
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'ok': True, 'files': saved})
+    return redirect(request.POST.get('next', reverse('receptionist_panel')))
+
+
+# ─── LAB: Boshqarish ───
+
+@login_required_custom
+@role_required('laboratory')
+def lab_boshqarish(request):
+    services = LabServiceTemplate.objects.all()
+    return render(request, 'lab/boshqarish.html', {'services': services})
+
+
+@login_required_custom
+@role_required('laboratory')
+def lab_service_add(request):
+    if request.method == 'POST':
+        number = request.POST.get('number', '').strip()
+        name = request.POST.get('name', '').strip()
+        price = request.POST.get('price', '0').strip() or '0'
+        ref = request.POST.get('reference_value', '').strip()
+        if number and name:
+            LabServiceTemplate.objects.get_or_create(
+                number=int(number),
+                defaults={'name': name, 'price': int(price), 'reference_value': ref},
+            )
+    return redirect('lab_boshqarish')
+
+
+@login_required_custom
+@role_required('laboratory')
+def lab_service_edit(request, pk):
+    svc = get_object_or_404(LabServiceTemplate, pk=pk)
+    if request.method == 'POST':
+        svc.number = int(request.POST.get('number', svc.number))
+        svc.name = request.POST.get('name', svc.name).strip()
+        svc.price = int(request.POST.get('price', svc.price) or 0)
+        svc.reference_value = request.POST.get('reference_value', svc.reference_value).strip()
+        svc.save()
+    return redirect('lab_boshqarish')
+
+
+@login_required_custom
+@role_required('laboratory')
+def lab_service_delete(request, pk):
+    svc = get_object_or_404(LabServiceTemplate, pk=pk)
+    if request.method == 'POST':
+        svc.delete()
+    return redirect('lab_boshqarish')
 
 
 # ─── ANALYTICS: Glasses ───
@@ -3286,18 +3419,116 @@ def analytics_glasses(request):
     period = request.GET.get('period', 'month')
     date_from = _get_date_filter(period)
 
-    sales_qs = GlassSale.objects.all()
+    sales_qs = OptikaSale.objects.all()
     if date_from:
         sales_qs = sales_qs.filter(created_at__gte=date_from)
 
-    total_revenue = sum(s.total_revenue for s in sales_qs)
-    total_profit = sum(s.total_profit for s in sales_qs)
-    total_sold = sales_qs.aggregate(total=Sum('quantity'))['total'] or 0
+    total_revenue = sum(s.total for s in sales_qs)
+    total_sales_count = sales_qs.count()
 
     return render(request, 'admin/analytics_glasses.html', {
         'period': period,
         'total_revenue': total_revenue,
-        'total_profit': total_profit,
-        'total_sold': total_sold,
-        'sales': sales_qs.select_related('glasses')[:100],
+        'total_sales_count': total_sales_count,
+        'sales': sales_qs.select_related('patient')[:200],
+    })
+
+
+# ─── OPTIKA PANEL ───
+
+@login_required_custom
+@role_required('seller')
+def optika_panel(request):
+    query = request.GET.get('q', '').strip()
+    if query:
+        phone = normalize_phone(query)
+        patients = Patient.objects.filter(
+            Q(name__icontains=query) | Q(surname__icontains=query) | Q(phone__icontains=phone)
+        ).distinct().order_by('surname', 'name')
+    else:
+        patients = Patient.objects.all().order_by('-created_at')[:100]
+    return render(request, 'seller/optika_panel.html', {'patients': patients, 'query': query})
+
+
+@login_required_custom
+@role_required('seller')
+def optika_patient_detail(request, patient_id):
+    patient = get_object_or_404(Patient, pk=patient_id)
+    prescription, _ = OptikaPatientPrescription.objects.get_or_create(patient=patient)
+    # Pre-fill from latest doctor visit if prescription is empty
+    if not any([prescription.retsept_uzoq_od, prescription.retsept_uzoq_os,
+                prescription.retsept_yaqin_od, prescription.retsept_yaqin_os,
+                prescription.retsept_kontakt_od, prescription.retsept_kontakt_os]):
+        latest_visit = Visit.objects.filter(patient=patient, doctor__isnull=False).order_by('-created_at').first()
+        if latest_visit:
+            prescription.retsept_uzoq_od = latest_visit.retsept_uzoq_od or ''
+            prescription.retsept_uzoq_os = latest_visit.retsept_uzoq_os or ''
+            prescription.retsept_yaqin_od = latest_visit.retsept_yaqin_od or ''
+            prescription.retsept_yaqin_os = latest_visit.retsept_yaqin_os or ''
+            prescription.retsept_kontakt_od = latest_visit.retsept_kontakt_od or ''
+            prescription.retsept_kontakt_os = latest_visit.retsept_kontakt_os or ''
+    return render(request, 'seller/optika_patient_detail.html', {'patient': patient, 'prescription': prescription})
+
+
+@login_required_custom
+@role_required('seller')
+def optika_save_prescription(request, patient_id):
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+    patient = get_object_or_404(Patient, pk=patient_id)
+    prescription, _ = OptikaPatientPrescription.objects.get_or_create(patient=patient)
+    prescription.retsept_uzoq_od = request.POST.get('retsept_uzoq_od', '')
+    prescription.retsept_uzoq_os = request.POST.get('retsept_uzoq_os', '')
+    prescription.retsept_yaqin_od = request.POST.get('retsept_yaqin_od', '')
+    prescription.retsept_yaqin_os = request.POST.get('retsept_yaqin_os', '')
+    prescription.retsept_kontakt_od = request.POST.get('retsept_kontakt_od', '')
+    prescription.retsept_kontakt_os = request.POST.get('retsept_kontakt_os', '')
+    prescription.save()
+    return JsonResponse({'ok': True})
+
+
+@login_required_custom
+@role_required('seller')
+def optika_sell(request, patient_id):
+    if request.method != 'POST':
+        return redirect('optika_patient_detail', patient_id=patient_id)
+    patient = get_object_or_404(Patient, pk=patient_id)
+    names = request.POST.getlist('item_name[]')
+    prices = request.POST.getlist('item_price[]')
+    items = []
+    for name, price in zip(names, prices):
+        name = name.strip()
+        try:
+            price = int(str(price).strip().replace(' ', '') or 0)
+        except (ValueError, TypeError):
+            price = 0
+        if name:
+            items.append({'name': name, 'price': price})
+    total = sum(i['price'] for i in items)
+    sale = OptikaSale.objects.create(patient=patient, items=items, total=total)
+    return redirect('optika_check', sale_id=sale.pk)
+
+
+@login_required_custom
+@role_required('seller')
+def optika_check(request, sale_id):
+    sale = get_object_or_404(OptikaSale.objects.select_related('patient'), pk=sale_id)
+    return render(request, 'seller/optika_check.html', {'sale': sale})
+
+
+@login_required_custom
+@role_required('seller')
+def optika_hisobot(request):
+    period = request.GET.get('period', 'month')
+    date_from = _get_date_filter(period)
+    sales_qs = OptikaSale.objects.select_related('patient').all()
+    if date_from:
+        sales_qs = sales_qs.filter(created_at__gte=date_from)
+    total_revenue = sum(s.total for s in sales_qs)
+    total_count = sales_qs.count()
+    return render(request, 'seller/optika_hisobot.html', {
+        'period': period,
+        'total_revenue': total_revenue,
+        'total_count': total_count,
+        'sales': sales_qs,
     })

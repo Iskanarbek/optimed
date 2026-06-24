@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}{{ patient.surname }} {{ patient.name }} — Optika{% endblock %}
+{% block nav_optika %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1>{{ patient.surname }} {{ patient.name }}</h1>
+        <p>{{ patient.phone }}</p>
+    </div>
+    <a href="{% url 'optika_panel' %}" class="btn btn-secondary">← Orqaga</a>
+</div>
+
+<!-- PRESCRIPTION SECTION -->
+<div class="card" style="margin-bottom:20px;">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+        <h3>Retsept</h3>
+        <button class="btn btn-primary btn-sm" onclick="savePrescription()">Saqlash</button>
+    </div>
+    <form id="prescriptionForm" style="padding:16px;">
+        {% csrf_token %}
+        <table style="width:100%;border-collapse:collapse;">
+            <thead>
+                <tr>
+                    <th style="text-align:left;padding:6px 10px;font-size:13px;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">Tur</th>
+                    <th style="text-align:center;padding:6px 10px;font-size:13px;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">OD (O'ng)</th>
+                    <th style="text-align:center;padding:6px 10px;font-size:13px;color:var(--text-muted);font-weight:600;border-bottom:1px solid var(--border);">OS (Chap)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style="padding:8px 10px;font-size:13px;">Uzoq (Вдаль)</td>
+                    <td style="padding:4px 8px;"><input type="text" name="retsept_uzoq_od" class="form-control" value="{{ prescription.retsept_uzoq_od }}" placeholder="—"></td>
+                    <td style="padding:4px 8px;"><input type="text" name="retsept_uzoq_os" class="form-control" value="{{ prescription.retsept_uzoq_os }}" placeholder="—"></td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 10px;font-size:13px;">Yaqin (Вблизи)</td>
+                    <td style="padding:4px 8px;"><input type="text" name="retsept_yaqin_od" class="form-control" value="{{ prescription.retsept_yaqin_od }}" placeholder="—"></td>
+                    <td style="padding:4px 8px;"><input type="text" name="retsept_yaqin_os" class="form-control" value="{{ prescription.retsept_yaqin_os }}" placeholder="—"></td>
+                </tr>
+                <tr>
+                    <td style="padding:8px 10px;font-size:13px;">Kontakt linza</td>
+                    <td style="padding:4px 8px;"><input type="text" name="retsept_kontakt_od" class="form-control" value="{{ prescription.retsept_kontakt_od }}" placeholder="—"></td>
+                    <td style="padding:4px 8px;"><input type="text" name="retsept_kontakt_os" class="form-control" value="{{ prescription.retsept_kontakt_os }}" placeholder="—"></td>
+                </tr>
+            </tbody>
+        </table>
+        <div id="prescSaveMsg" style="display:none;font-size:12px;color:var(--success,green);margin-top:8px;padding:0 10px;">Saqlandi ✓</div>
+    </form>
+</div>
+
+<!-- PURCHASE SECTION -->
+<div class="card">
+    <div class="card-header"><h3>Sotish</h3></div>
+    <form id="sellForm" method="post" action="{% url 'optika_sell' patient.pk %}" style="padding:16px;">
+        {% csrf_token %}
+
+        <div id="itemsContainer">
+            <!-- Fixed items -->
+            <div class="sell-row" data-key="oyna">
+                <div class="sell-label">Oyna turi</div>
+                <input type="text" name="item_name[]" class="form-control sell-name" placeholder="Masalan: Progressiv linza">
+                <input type="number" name="item_price[]" class="form-control sell-price" placeholder="Narxi (so'm)" min="0">
+            </div>
+            <div class="sell-row" data-key="linza">
+                <div class="sell-label">Linza turi</div>
+                <input type="text" name="item_name[]" class="form-control sell-name" placeholder="Masalan: Kontakt linza">
+                <input type="number" name="item_price[]" class="form-control sell-price" placeholder="Narxi (so'm)" min="0">
+            </div>
+            <div class="sell-row" data-key="arava">
+                <div class="sell-label">Аправа</div>
+                <input type="text" name="item_name[]" class="form-control sell-name" placeholder="Masalan: Ray-Ban RB3548">
+                <input type="number" name="item_price[]" class="form-control sell-price" placeholder="Narxi (so'm)" min="0">
+            </div>
+            <div class="sell-row" data-key="aksessuar">
+                <div class="sell-label">Aksessuar</div>
+                <input type="text" name="item_name[]" class="form-control sell-name" placeholder="Masalan: Ko'zoynak futlyari">
+                <input type="number" name="item_price[]" class="form-control sell-price" placeholder="Narxi (so'm)" min="0">
+            </div>
+            <div id="extraItems"></div>
+        </div>
+
+        <button type="button" class="btn btn-secondary btn-sm" onclick="addExtraItem()" style="margin-top:8px;">+ Qo'shimcha tovar</button>
+
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+            <div style="font-size:15px;font-weight:700;">Jami: <span id="totalDisplay">0 so'm</span></div>
+            <button type="submit" class="btn btn-primary" onclick="return confirmSell()">Sotish</button>
+        </div>
+    </form>
+</div>
+
+<style>
+.sell-row {
+    display: grid;
+    grid-template-columns: 140px 1fr 160px auto;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+.sell-label { font-size: 13px; font-weight: 600; color: var(--text); }
+.sell-row .sell-price { width: 100%; }
+.extra-remove { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 18px; padding: 0 4px; }
+.extra-remove:hover { color: var(--danger, #e33); }
+</style>
+
+<script>
+// Live total calculation
+document.getElementById('itemsContainer').addEventListener('input', calcTotal);
+
+function calcTotal() {
+    var prices = document.querySelectorAll('#itemsContainer input[name="item_price[]"]');
+    var total = 0;
+    prices.forEach(function(p) { total += parseInt(p.value || 0) || 0; });
+    document.getElementById('totalDisplay').textContent = total.toLocaleString('uz-UZ') + ' so\'m';
+}
+
+var extraCount = 0;
+function addExtraItem() {
+    extraCount++;
+    var div = document.createElement('div');
+    div.className = 'sell-row';
+    div.id = 'extra-' + extraCount;
+    div.innerHTML =
+        '<div class="sell-label"><input type="text" name="item_name[]" class="form-control" placeholder="Nomi" style="font-size:13px;"></div>' +
+        '<div></div>' +
+        '<input type="number" name="item_price[]" class="form-control sell-price" placeholder="Narxi (so\'m)" min="0">' +
+        '<button type="button" class="extra-remove" onclick="removeExtra(' + extraCount + ')">✕</button>';
+    // Fix: label is now input, need proper grid layout
+    div.innerHTML =
+        '<input type="text" name="item_name[]" class="form-control" placeholder="Tovar nomi" style="grid-column:1/3;">' +
+        '<input type="number" name="item_price[]" class="form-control sell-price" placeholder="Narxi (so\'m)" min="0">' +
+        '<button type="button" class="extra-remove" onclick="removeExtra(' + extraCount + ')">✕</button>';
+    document.getElementById('extraItems').appendChild(div);
+    div.style.gridTemplateColumns = '1fr 160px auto';
+    div.addEventListener('input', calcTotal);
+}
+
+function removeExtra(id) {
+    var el = document.getElementById('extra-' + id);
+    if (el) { el.remove(); calcTotal(); }
+}
+
+function confirmSell() {
+    var names = document.querySelectorAll('#itemsContainer input[name="item_name[]"]');
+    var hasItem = false;
+    names.forEach(function(n) { if (n.value.trim()) hasItem = true; });
+    if (!hasItem) { alert("Kamida bitta tovar nomini kiriting"); return false; }
+    return true;
+}
+
+function savePrescription() {
+    var form = document.getElementById('prescriptionForm');
+    var fd = new FormData(form);
+    fetch('{% url "optika_save_prescription" patient.pk %}', {
+        method: 'POST',
+        headers: {'X-Requested-With': 'XMLHttpRequest'},
+        body: fd
+    }).then(function(r){ return r.json(); })
+    .then(function(d) {
+        if (d.ok) {
+            var msg = document.getElementById('prescSaveMsg');
+            msg.style.display = 'block';
+            setTimeout(function(){ msg.style.display = 'none'; }, 2500);
+        }
+    });
+}
+</script>
+{% endblock %}

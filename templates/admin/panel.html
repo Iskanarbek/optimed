@@ -81,7 +81,7 @@
                 <tr>
                     <td><strong>{{ worker.name }} {{ worker.surname }}</strong></td>
                     <td>{{ worker.phone }}</td>
-                    <td>{% for svc in worker.services.all %}{{ svc.name }}{% if not forloop.last %}, {% endif %}{% empty %}-{% endfor %}</td>
+                    <td style="font-size:11px;max-width:180px;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;line-height:1.4;">{% for svc in worker.services.all %}{{ svc.name }}{% if not forloop.last %}, {% endif %}{% empty %}-{% endfor %}</td>
                     <td><strong>{{ worker.salary|format_som }} so'm</strong></td>
                     <td>
                         <div style="display:flex;gap:6px;">
